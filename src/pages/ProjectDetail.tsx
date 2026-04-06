@@ -637,6 +637,52 @@ export default function ProjectDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Confirm Dialogs */}
+      <ConfirmDialog
+        open={deleteTaskConfirm.open}
+        onOpenChange={(open) => setDeleteTaskConfirm({ ...deleteTaskConfirm, open })}
+        title="Delete Task"
+        description="Are you sure you want to delete this task? This action cannot be undone."
+        onConfirm={confirmDeleteTask}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={deleteMilestoneConfirm.open}
+        onOpenChange={(open) => setDeleteMilestoneConfirm({ ...deleteMilestoneConfirm, open })}
+        title="Delete Milestone"
+        description="Are you sure you want to delete this milestone? This action cannot be undone."
+        onConfirm={confirmDeleteMilestone}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={deleteResourceConfirm.open}
+        onOpenChange={(open) => setDeleteResourceConfirm({ ...deleteResourceConfirm, open })}
+        title="Delete Resource"
+        description="Are you sure you want to delete this resource? This action cannot be undone."
+        onConfirm={confirmDeleteResource}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={deleteDiscussionConfirm.open}
+        onOpenChange={(open) => setDeleteDiscussionConfirm({ ...deleteDiscussionConfirm, open })}
+        title="Delete Discussion"
+        description="Are you sure you want to delete this discussion? This action cannot be undone."
+        onConfirm={confirmDeleteDiscussion}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={deleteMeetingConfirm.open}
+        onOpenChange={(open) => setDeleteMeetingConfirm({ ...deleteMeetingConfirm, open })}
+        title="Delete Meeting"
+        description="Are you sure you want to delete this meeting? This action cannot be undone."
+        onConfirm={confirmDeleteMeeting}
+        variant="destructive"
+      />
     </div>
   );
 }

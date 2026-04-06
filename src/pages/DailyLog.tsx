@@ -227,6 +227,24 @@ export default function DailyLogPage() {
           </Card>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteWinConfirm.open}
+        onOpenChange={(open) => setDeleteWinConfirm({ ...deleteWinConfirm, open })}
+        title="Delete Win"
+        description="Are you sure you want to delete this win?"
+        onConfirm={() => deleteWin(deleteWinConfirm.index ?? 0)}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={deleteBlockerConfirm.open}
+        onOpenChange={(open) => setDeleteBlockerConfirm({ ...deleteBlockerConfirm, open })}
+        title="Delete Blocker"
+        description="Are you sure you want to delete this blocker?"
+        onConfirm={() => deleteBlocker(deleteBlockerConfirm.index ?? 0)}
+        variant="destructive"
+      />
     </div>
   );
 }

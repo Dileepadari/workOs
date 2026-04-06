@@ -139,6 +139,14 @@ export default function FocusMode() {
 
       {/* Session counter */}
       <p className="text-xs text-muted-foreground">{sessions} pomodoro session{sessions !== 1 ? 's' : ''} completed</p>
+
+      <ConfirmDialog
+        open={completeTaskConfirm}
+        onOpenChange={setCompleteTaskConfirm}
+        title="Mark Task Complete"
+        description={`Are you sure you want to mark "${currentTask?.title}" as complete?`}
+        onConfirm={completeTask}
+      />
     </div>
   );
 }

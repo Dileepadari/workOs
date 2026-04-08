@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Bell } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Bell, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -11,9 +11,10 @@ const navItems = [
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
   { to: '/calendar', icon: Calendar, label: 'Calendar' },
-  { to: '/links', icon: Link2, label: 'Link Vault' },
+  { to: '/resources', icon: Link2, label: 'Resources' },
   { to: '/log', icon: BookOpen, label: 'Daily Log' },
   { to: '/notes', icon: FileText, label: 'Notes' },
+  { to: '/collab', icon: Users, label: 'Collaborations' },
   { to: '/focus', icon: Crosshair, label: 'Focus Mode' },
   { to: '/review', icon: BarChart3, label: 'Weekly Review' },
   { to: '/settings', icon: Settings, label: 'Settings' },

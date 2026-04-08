@@ -135,14 +135,14 @@ export default function Projects() {
   });
 
   return (
-    <div className="animate-fade-in space-y-4 sm:space-y-6">
+    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
       <PageHeader title="Projects" />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs sm:text-sm text-muted-foreground">{projects.length} projects</p>
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">{projects.length} projects</p>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />New Project</Button>
+            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Project</Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
@@ -220,14 +220,14 @@ export default function Projects() {
 
       {/* Filter Bar */}
       <div className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-end">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="pl-9" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="pl-9 h-9 text-sm" />
           </div>
           <div className="flex gap-2 flex-wrap">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-[140px] h-9 text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
@@ -236,14 +236,14 @@ export default function Projects() {
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[130px]"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue placeholder="Type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 {projectTypes.map(t => <SelectItem key={t} value={t} className="capitalize">{t.replace('_', ' ')}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[140px]"><ArrowUpDown className="mr-1 h-3 w-3" /><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[160px] h-9 text-sm"><ArrowUpDown className="mr-1 h-3 w-3" /><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="updated">Last Updated</SelectItem>
                 <SelectItem value="alpha">Alphabetical</SelectItem>
@@ -256,64 +256,64 @@ export default function Projects() {
         {/* Active filter pills */}
         {(search || statusFilter !== 'all' || typeFilter !== 'all') && (
           <div className="flex gap-2 flex-wrap">
-            {search && <Badge variant="secondary" className="text-xs gap-1">{search}<button onClick={() => setSearch('')}><X className="h-3 w-3" /></button></Badge>}
-            {statusFilter !== 'all' && <Badge variant="secondary" className="text-xs gap-1 capitalize">{statusFilter}<button onClick={() => setStatusFilter('all')}><X className="h-3 w-3" /></button></Badge>}
-            {typeFilter !== 'all' && <Badge variant="secondary" className="text-xs gap-1 capitalize">{typeFilter}<button onClick={() => setTypeFilter('all')}><X className="h-3 w-3" /></button></Badge>}
+            {search && <Badge variant="secondary" className="text-xs gap-1 cursor-pointer hover:opacity-75"><X className="h-3 w-3" onClick={() => setSearch('')} />{search}</Badge>}
+            {statusFilter !== 'all' && <Badge variant="secondary" className="text-xs gap-1 capitalize cursor-pointer hover:opacity-75"><X className="h-3 w-3" onClick={() => setStatusFilter('all')} />{statusFilter}</Badge>}
+            {typeFilter !== 'all' && <Badge variant="secondary" className="text-xs gap-1 capitalize cursor-pointer hover:opacity-75"><X className="h-3 w-3" onClick={() => setTypeFilter('all')} />{typeFilter}</Badge>}
           </div>
         )}
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="mb-2 text-muted-foreground">{projects.length === 0 ? 'No projects yet' : 'No matching projects'}</p>
+            <p className="mb-2 text-sm text-muted-foreground">{projects.length === 0 ? 'No projects yet' : 'No matching projects'}</p>
             {projects.length === 0 && (
-              <Button variant="outline" onClick={() => setDialogOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />Create your first project
               </Button>
             )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
             const tc = taskCounts[p.id] ?? { done: 0, total: 0 };
             return (
               <Link key={p.id} to={`/projects/${p.slug || p.id}`}>
-                <Card className="group transition-colors hover:bg-card/80 h-full">
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
+                <Card className="group transition-colors hover:bg-muted/50 h-full">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="mb-4 flex items-start justify-between">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                        <h3 className="font-medium text-foreground truncate">{p.name}</h3>
+                        <h3 className="font-semibold text-foreground truncate text-base">{p.name}</h3>
                       </div>
                       <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0" onClick={e => e.preventDefault()}>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.preventDefault(); handleEdit(p); }}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8" onClick={(e) => { e.preventDefault(); handleEdit(p); }}>
                           <Edit2 className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.preventDefault(); handleDelete(p.id); }}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.preventDefault(); handleDelete(p.id); }}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
-                    {p.description && <p className="mb-3 text-xs sm:text-sm text-muted-foreground line-clamp-2">{p.description}</p>}
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {p.type && <Badge variant="outline" className="text-[10px] capitalize">{p.type.replace('_', ' ')}</Badge>}
-                      {(p.tags ?? []).slice(0, 3).map(tag => <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>)}
+                    {p.description && <p className="mb-3 text-sm text-muted-foreground line-clamp-2">{p.description}</p>}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {p.type && <Badge variant="outline" className="text-xs capitalize">{p.type.replace('_', ' ')}</Badge>}
+                      {(p.tags ?? []).slice(0, 3).map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
                     </div>
                     {tc.total > 0 && (
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-3">
                         <div className="h-1.5 flex-1 rounded-full bg-muted">
                           <div className="h-full rounded-full bg-primary" style={{ width: `${tc.total > 0 ? (tc.done / tc.total) * 100 : 0}%` }} />
                         </div>
-                        <span className="text-[10px] text-muted-foreground">{tc.done}/{tc.total}</span>
+                        <span className="text-xs text-muted-foreground">{tc.done}/{tc.total}</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      <Badge className={`text-[10px] capitalize ${statusColors[p.status]}`}>{p.status.replace('_', ' ')}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{format(new Date(p.updated_at), 'MMM d')}</span>
+                    <div className="flex items-center justify-between text-xs">
+                      <Badge className={`capitalize ${statusColors[p.status]}`}>{p.status.replace('_', ' ')}</Badge>
+                      <span className="text-muted-foreground">{format(new Date(p.updated_at), 'MMM d')}</span>
                     </div>
                   </CardContent>
                 </Card>

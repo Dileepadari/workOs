@@ -69,25 +69,25 @@ export default function Notes() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
       <PageHeader title="Notes" />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{notes.length} notes</p>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm({ title: '', content: '' }); setEditing(null); } }}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />New Note</Button>
+            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Note</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader><DialogTitle>{editing ? 'Edit Note' : 'New Note'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+                <Label className="text-sm font-medium">Title</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Content</Label>
-                <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={8} />
+                <Label className="text-sm font-medium">Content</Label>
+                <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={8} className="text-sm resize-none" />
               </div>
               <Button type="submit" className="w-full">{editing ? 'Save' : 'Create Note'}</Button>
             </form>
@@ -96,29 +96,29 @@ export default function Notes() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : notes.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="mb-2 text-muted-foreground">No notes yet</p>
-            <Button variant="outline" onClick={() => setDialogOpen(true)}>
+            <p className="mb-2 text-sm text-muted-foreground">No notes yet</p>
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />Create your first note
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {notes.map((n) => (
-            <Card key={n.id} className="group transition-colors hover:bg-card/80">
-              <CardContent className="p-5">
-                <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-medium text-foreground">{n.title}</h3>
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(n)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(n.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+            <Card key={n.id} className="group transition-colors hover:bg-muted/50 flex flex-col">
+              <CardContent className="p-4 sm:p-6 flex flex-col flex-1">
+                <div className="mb-3 flex items-start justify-between">
+                  <h3 className="font-semibold text-foreground text-base flex-1 line-clamp-2">{n.title}</h3>
+                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
+                    <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleEdit(n)}><Edit2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(n.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
-                {n.content && <p className="mb-3 text-sm text-muted-foreground line-clamp-4 whitespace-pre-wrap">{n.content}</p>}
+                {n.content && <p className="mb-4 text-sm text-muted-foreground line-clamp-4 whitespace-pre-wrap flex-1">{n.content}</p>}
                 <p className="text-xs text-muted-foreground">{format(new Date(n.updated_at), 'MMM d, yyyy')}</p>
               </CardContent>
             </Card>

@@ -118,6 +118,38 @@ export type Database = {
         }
         Relationships: []
       }
+      discussion_reactions: {
+        Row: {
+          created_at: string
+          discussion_id: string
+          emoji: string
+          id: string
+          user_identifier: string
+        }
+        Insert: {
+          created_at?: string
+          discussion_id: string
+          emoji: string
+          id?: string
+          user_identifier: string
+        }
+        Update: {
+          created_at?: string
+          discussion_id?: string
+          emoji?: string
+          id?: string
+          user_identifier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discussion_reactions_discussion_id_fkey"
+            columns: ["discussion_id"]
+            isOneToOne: false
+            referencedRelation: "discussions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discussions: {
         Row: {
           author: string
@@ -336,6 +368,41 @@ export type Database = {
           },
         ]
       }
+      project_collaborators: {
+        Row: {
+          email: string
+          id: string
+          invited_at: string
+          last_access_at: string | null
+          project_id: string
+          role: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          invited_at?: string
+          last_access_at?: string | null
+          project_id: string
+          role?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          invited_at?: string
+          last_access_at?: string | null
+          project_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_collaborators_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           collab_password_hash: string | null
@@ -449,6 +516,7 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          due_time: string | null
           id: string
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string | null
@@ -464,6 +532,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
@@ -479,6 +548,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
@@ -505,6 +575,11 @@ export type Database = {
     }
     Functions: {
       get_collab_project_data: { Args: { p_session_id: string }; Returns: Json }
+      get_collab_projects: { Args: { p_email: string }; Returns: Json }
+      verify_collab_by_email: {
+        Args: { p_email: string; p_project_slug: string }
+        Returns: Json
+      }
       verify_collab_password: {
         Args: { p_email: string; p_password: string; p_project_slug: string }
         Returns: Json
@@ -513,7 +588,7 @@ export type Database = {
     Enums: {
       project_status: "active" | "archived" | "on_hold"
       task_priority: "low" | "medium" | "high" | "urgent"
-      task_status: "todo" | "in_progress" | "done"
+      task_status: "todo" | "in_progress" | "done" | "blocked" | "dropped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -643,7 +718,7 @@ export const Constants = {
     Enums: {
       project_status: ["active", "archived", "on_hold"],
       task_priority: ["low", "medium", "high", "urgent"],
-      task_status: ["todo", "in_progress", "done"],
+      task_status: ["todo", "in_progress", "done", "blocked", "dropped"],
     },
   },
 } as const

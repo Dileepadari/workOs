@@ -1,22 +1,23 @@
-import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 interface SearchContextType {
   isOpen: boolean;
   openSearch: () => void;
   closeSearch: () => void;
+  toggleSearch: () => void;
 }
 
 const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
-export function SearchProvider({ children, initialOpen = false, onSearchStateChange }: { children: ReactNode; initialOpen?: boolean; onSearchStateChange?: Dispatch<SetStateAction<boolean>> }) {
-  const [isOpen, setIsOpen] = useState(initialOpen);
+export function SearchProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    onSearchStateChange?.(isOpen);
-  }, [isOpen, onSearchStateChange]);
+  const openSearch = useCallback(() => setIsOpen(true), []);
+  const closeSearch = useCallback(() => setIsOpen(false), []);
+  const toggleSearch = useCallback(() => setIsOpen(prev => !prev), []);
 
   return (
-    <SearchContext.Provider value={{ isOpen, openSearch: () => setIsOpen(true), closeSearch: () => setIsOpen(false) }}>
+    <SearchContext.Provider value={{ isOpen, openSearch, closeSearch, toggleSearch }}>
       {children}
     </SearchContext.Provider>
   );

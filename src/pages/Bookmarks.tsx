@@ -69,33 +69,33 @@ export default function Bookmarks() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
       <PageHeader title="Bookmarks" />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{bookmarks.length} bookmarks</p>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm({ title: '', url: '', description: '', tags: '' }); setEditingBookmark(null); } }}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Add Bookmark</Button>
+            <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Bookmark</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader><DialogTitle>{editingBookmark ? 'Edit Bookmark' : 'Add Bookmark'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+                <Label className="text-sm font-medium">Title</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>URL</Label>
-                <Input type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required placeholder="https://" />
+                <Label className="text-sm font-medium">URL</Label>
+                <Input type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required placeholder="https://" className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                <Label className="text-sm font-medium">Description</Label>
+                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Tags (comma-separated)</Label>
-                <Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="design, dev, reference" />
+                <Label className="text-sm font-medium">Tags (comma-separated)</Label>
+                <Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="design, dev, reference" className="h-9 text-sm" />
               </div>
               <Button type="submit" className="w-full">Add Bookmark</Button>
             </form>
@@ -104,43 +104,43 @@ export default function Bookmarks() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : bookmarks.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="mb-2 text-muted-foreground">No bookmarks yet</p>
-            <Button variant="outline" onClick={() => setDialogOpen(true)}>
+            <p className="mb-2 text-sm text-muted-foreground">No bookmarks yet</p>
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />Add your first bookmark
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {bookmarks.map((b) => (
-            <Card key={b.id} className="group transition-colors hover:bg-card/80">
-              <CardContent className="flex items-center gap-4 p-4">
+            <Card key={b.id} className="group transition-colors hover:bg-muted/50">
+              <CardContent className="flex items-center gap-4 p-4 sm:p-6">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-foreground truncate">{b.title}</h3>
-                    <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                      <ExternalLink className="h-3.5 w-3.5" />
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-foreground truncate text-base">{b.title}</h3>
+                    <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors shrink-0">
+                      <ExternalLink className="h-4 w-4" />
                     </a>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{b.url}</p>
+                  <p className="text-xs text-muted-foreground truncate mb-2">{b.url}</p>
                   {b.tags.length > 0 && (
-                    <div className="mt-1 flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       {b.tags.map((tag) => (
                         <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                       ))}
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(b)}>
-                    <Edit2 className="h-3.5 w-3.5" />
+                <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
+                  <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleEdit(b)}>
+                    <Edit2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(b.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="sm" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(b.id)}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>

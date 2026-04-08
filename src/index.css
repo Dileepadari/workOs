@@ -6,89 +6,93 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* Light Mode - Optimized for readability and contrast */
+    --background: 0 0% 99%;                    /* Very light gray/off-white */
+    --foreground: 220 14% 20%;                 /* Dark blue-gray text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 0 0% 100%;                         /* Pure white cards */
+    --card-foreground: 220 14% 20%;            /* Dark text on cards */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;                      /* White popovers */
+    --popover-foreground: 220 14% 20%;         /* Dark text in popovers */
 
-    --primary: 180 43% 30%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 217 33% 43%;                    /* Muted blue-slate */
+    --primary-foreground: 0 0% 100%;           /* White text on primary (buttons) */
 
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 214 32% 91%;                  /* Very light blue - for backgrounds */
+    --secondary-foreground: 220 14% 20%;       /* Dark text on light secondary */
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 13% 91%;                      /* Light gray - for subtle backgrounds */
+    --muted-foreground: 215 14% 50%;           /* Gray text - for secondary/disabled content */
 
-    --accent: 180 43% 30%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 217 33% 43%;                     /* Same as primary for consistency */
+    --accent-foreground: 0 0% 100%;            /* White text on accent */
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;                  /* Red for errors/delete */
+    --destructive-foreground: 0 0% 100%;       /* White text on destructive */
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 180 43% 30%;
+    --border: 220 13% 91%;                     /* Light gray borders */
+    --input: 220 13% 91%;                      /* Light gray inputs */
+    --ring: 217 33% 43%;                       /* Blue-slate focus ring */
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
-    --success: 142 50% 33%;
-    --warning: 43 96% 50%;
+    /* Status colors - ensure they work in light mode */
+    --success: 142 50% 33%;                    /* Green - works on white background */
+    --warning: 43 96% 50%;                     /* Amber/Yellow - high visibility */
 
-    --sidebar-background: 210 40% 96%;
-    --sidebar-foreground: 215 16% 47%;
-    --sidebar-primary: 180 43% 30%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 214 32% 91%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 87%;
-    --sidebar-ring: 180 43% 30%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 220 14% 35%;
+    --sidebar-primary: 217 33% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 13% 91%;
+    --sidebar-accent-foreground: 220 14% 20%;
+    --sidebar-border: 220 13% 87%;
+    --sidebar-ring: 217 33% 43%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 213 31% 91%;
+    /* Dark Mode - Optimized for WCAG AA+ contrast */
+    --background: 217 33% 11%;                 /* Very dark blue-slate */
+    --foreground: 218 14% 92%;                 /* Bright light text for maximum readability */
 
-    --card: 220 40% 13%;
-    --card-foreground: 213 31% 91%;
+    --card: 217 33% 17%;                       /* Slightly lighter blue-slate cards - better separation */
+    --card-foreground: 218 14% 92%;            /* Bright text on dark cards */
 
-    --popover: 220 40% 13%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 217 33% 17%;                    /* Dark popovers */
+    --popover-foreground: 218 14% 92%;         /* Bright text in dark popovers */
 
-    --primary: 180 43% 30%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 217 33% 56%;                    /* BRIGHTENED: From 43% to 56% - now visible on dark backgrounds */
+    --primary-foreground: 0 0% 100%;           /* White text on primary buttons */
 
-    --secondary: 222 30% 18%;
-    --secondary-foreground: 213 31% 75%;
+    --secondary: 217 33% 23%;                  /* Slightly lighter than background for distinction */
+    --secondary-foreground: 218 14% 85%;       /* Brighter text on dark secondary */
 
-    --muted: 222 30% 20%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 217 33% 24%;                      /* BRIGHTENED: From 20% to 24% - better hover states */
+    --muted-foreground: 215 14% 68%;           /* BRIGHTENED: From 60% to 68% - more readable secondary text */
 
-    --accent: 180 43% 30%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 217 33% 56%;                     /* Same as primary for consistency */
+    --accent-foreground: 0 0% 100%;            /* White text on accent */
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;                  /* BRIGHTENED: From 51% to 60% - better visibility on dark */
+    --destructive-foreground: 0 0% 100%;       /* White text on destructive */
 
-    --border: 222 30% 22%;
-    --input: 222 30% 22%;
-    --ring: 180 43% 30%;
+    --border: 217 33% 24%;                     /* BRIGHTENED: From 20% to 24% - more visible borders */
+    --input: 217 33% 24%;                      /* BRIGHTENED: Dark gray inputs with better contrast */
+    --ring: 217 33% 56%;                       /* Brightened focus ring to match new primary */
 
-    --success: 142 50% 40%;
-    --warning: 38 92% 50%;
+    /* Status colors - OPTIMIZED for dark mode visibility */
+    --success: 142 71% 50%;                    /* BRIGHTENED & SATURATED: From 142 50% 40% - more visible */
+    --warning: 38 92% 55%;                     /* BRIGHTENED: From 50% to 55% - better visibility */
 
-    --sidebar-background: 222 47% 9%;
-    --sidebar-foreground: 213 31% 75%;
-    --sidebar-primary: 180 43% 30%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 222 47% 14%;
-    --sidebar-accent-foreground: 213 31% 91%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 180 43% 30%;
+    --sidebar-background: 217 33% 10%;
+    --sidebar-foreground: 218 14% 88%;
+    --sidebar-primary: 217 33% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 20%;
+    --sidebar-accent-foreground: 218 14% 92%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 217 33% 56%;
   }
 }
 
@@ -98,5 +102,184 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* ===========================
+   LAYOUT & CONTAINER UTILITIES
+   =========================== */
+@layer components {
+  .page-wrapper {
+    @apply animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6;
+  }
+
+  .page-section {
+    @apply space-y-4;
+  }
+
+  .page-header-container {
+    @apply flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  /* ===========================
+     TYPOGRAPHY UTILITIES
+     =========================== */
+  .page-title {
+    @apply text-2xl sm:text-3xl font-bold text-foreground;
+  }
+
+  .section-title {
+    @apply text-lg sm:text-xl font-semibold text-foreground;
+  }
+
+  .subsection-title {
+    @apply text-base font-semibold text-foreground;
+  }
+
+  .body-text {
+    @apply text-sm text-foreground;
+  }
+
+  .secondary-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .small-text {
+    @apply text-xs text-muted-foreground;
+  }
+
+  /* ===========================
+     CARD & COMPONENT UTILITIES
+     =========================== */
+  .card-wrapper {
+    @apply p-4 sm:p-6;
+  }
+
+  .card-content-wrapper {
+    @apply space-y-3 sm:space-y-4;
+  }
+
+  .grid-standard {
+    @apply gap-4 sm:gap-6;
+  }
+
+  .dialog-content-wrapper {
+    @apply space-y-4;
+  }
+
+  /* ===========================
+     FORM UTILITIES
+     =========================== */
+  .form-group {
+    @apply space-y-2;
+  }
+
+  .form-label {
+    @apply text-xs sm:text-sm font-medium;
+  }
+
+  .form-input-standard {
+    @apply h-9 text-sm;
+  }
+
+  /* ===========================
+     SPACING UTILITIES
+     =========================== */
+  .flex-gap-standard {
+    @apply gap-3 sm:gap-4;
+  }
+
+  /* ===========================
+     HOVER & INTERACTION UTILITIES
+     =========================== */
+  .list-item-hover {
+    @apply transition-colors hover:bg-muted/50;
+  }
+
+  .badge-action {
+    @apply cursor-pointer hover:opacity-75 transition-opacity;
+  }
+
+  .hover-lift {
+    @apply transition-all hover:shadow-md;
+  }
+
+  .hover-tone {
+    @apply transition-colors hover:bg-muted/50;
+  }
+
+  /* ===========================
+     EMPTY STATE UTILITIES
+     =========================== */
+  .empty-state {
+    @apply py-12 text-center;
+  }
+
+  .empty-state-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* ===========================
+     LOADING STATE UTILITIES
+     =========================== */
+  .loading-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* ===========================
+     TAB & GRID UTILITIES
+     =========================== */
+  .tab-content {
+    @apply space-y-3 sm:space-y-4 mt-6;
+  }
+
+  .grid-responsive-2-to-3 {
+    @apply grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-responsive-1-to-3 {
+    @apply grid grid-cols-1 gap-6 lg:grid-cols-3;
+  }
+
+  /* ===========================
+     BUTTON & ICON UTILITIES
+     =========================== */
+  .action-group {
+    @apply flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0;
+  }
+
+  .icon-button-standard {
+    @apply h-8 w-8;
+  }
+
+  .button-sm {
+    @apply h-9 text-sm;
+  }
+
+  /* ===========================
+     CONTRAST & COLOR UTILITIES
+     =========================== */
+  .text-contrast-high {
+    @apply text-foreground;
+  }
+
+  .text-contrast-medium {
+    @apply text-muted-foreground;
+  }
+
+  .text-contrast-link {
+    @apply text-primary hover:text-primary/80 transition-colors;
+  }
+
+  .bg-subtle {
+    @apply bg-muted/5;
+  }
+
+  .bg-slightly-visible {
+    @apply bg-muted/10;
+  }
+
+  .bg-visible {
+    @apply bg-muted/20;
   }
 }

@@ -145,33 +145,33 @@ export default function Tasks() {
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p]));
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
       <PageHeader title="Tasks" />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{tasks.filter((t) => t.status !== 'done').length} open tasks</p>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />New Task</Button>
+            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Task</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingTask ? 'Edit Task' : 'New Task'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+                <Label className="text-sm font-medium">Title</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                <Label className="text-sm font-medium">Description</Label>
+                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label className="text-sm font-medium">Priority</Label>
                   <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v as Task['priority'] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
@@ -181,9 +181,9 @@ export default function Tasks() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label className="text-sm font-medium">Status</Label>
                   <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as Task['status'] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todo">To Do</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
@@ -194,13 +194,13 @@ export default function Tasks() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Due Date</Label>
-                  <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                  <Label className="text-sm font-medium">Due Date</Label>
+                  <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="h-9 text-sm" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Project</Label>
+                  <Label className="text-sm font-medium">Project</Label>
                   <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="None" /></SelectTrigger>
                     <SelectContent>
                       {projects.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -215,29 +215,29 @@ export default function Tasks() {
         </Dialog>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {['all', 'todo', 'in_progress', 'done'].map((s) => (
-          <Button key={s} variant={filter === s ? 'default' : 'secondary'} size="sm" onClick={() => setFilter(s)}>
+          <Button key={s} variant={filter === s ? 'default' : 'outline'} size="sm" onClick={() => setFilter(s)} className="text-xs">
             {s === 'all' ? 'All' : statusLabels[s]}
           </Button>
         ))}
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {(['todo', 'in_progress', 'done'] as const).map((status) => (
             <Card key={status}>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between text-sm">
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center justify-between text-sm font-semibold">
                   <span>{statusLabels[status]}</span>
-                  <Badge variant="secondary">{groupedByStatus[status].length}</Badge>
+                  <Badge variant="secondary" className="text-xs">{groupedByStatus[status].length}</Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-2 p-4 sm:p-6">
                 {groupedByStatus[status].map((task) => (
-                  <div key={task.id} className="group flex items-start gap-3 rounded-md border border-border p-3 transition-colors hover:bg-muted/30">
+                  <div key={task.id} className="group flex items-start gap-3 rounded-md border border-border p-3 transition-colors hover:bg-muted/50">
                     <Checkbox
                       checked={task.status === 'done'}
                       onCheckedChange={() => toggleDone(task)}
@@ -248,9 +248,9 @@ export default function Tasks() {
                         {task.title}
                       </p>
                       {task.description && (
-                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{task.description}</p>
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                       )}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Badge className={`text-xs ${priorityColors[task.priority]}`}>{task.priority}</Badge>
                         {task.project_id && projectMap[task.project_id] && (
                           <Badge variant="outline" className="text-xs">
@@ -267,41 +267,41 @@ export default function Tasks() {
                       </div>
                       {/* Quick status change */}
                       {task.status !== 'done' && (
-                        <div className="mt-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="mt-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                           {status !== 'todo' && (
-                            <button onClick={() => updateStatus(task.id, 'todo')} className="rounded bg-secondary px-2 py-0.5 text-xs text-secondary-foreground hover:bg-secondary/80">To Do</button>
+                            <button onClick={() => updateStatus(task.id, 'todo')} className="rounded px-2 py-1 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors">To Do</button>
                           )}
                           {status !== 'in_progress' && (
-                            <button onClick={() => updateStatus(task.id, 'in_progress')} className="rounded bg-primary/20 px-2 py-0.5 text-xs text-primary hover:bg-primary/30">In Progress</button>
+                            <button onClick={() => updateStatus(task.id, 'in_progress')} className="rounded px-2 py-1 text-xs font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors">In Progress</button>
                           )}
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
                       <Button 
                         variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7"
+                        size="sm"
+                        className="h-8 w-8"
                         title={task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
                         onClick={() => toggleDone(task)}
                       >
                         {task.status === 'done' ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                          <CheckCircle2 className="h-4 w-4 text-success" />
                         ) : (
-                          <Circle className="h-3.5 w-3.5" />
+                          <Circle className="h-4 w-4" />
                         )}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(task)}>
-                        <Edit2 className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleEdit(task)}>
+                        <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(task.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="sm" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(task.id)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 ))}
                 {groupedByStatus[status].length === 0 && (
-                  <p className="py-4 text-center text-xs text-muted-foreground">No tasks</p>
+                  <p className="py-6 text-center text-xs text-muted-foreground">No tasks</p>
                 )}
               </CardContent>
             </Card>

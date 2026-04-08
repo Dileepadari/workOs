@@ -1,0 +1,307 @@
+/* Color Palette Documentation & Utilities
+ * 
+ * This file documents all available CSS variables for each theme
+ * and provides utility classes for common color combinations
+ */
+
+/* ===== COMMON PALETTE ===== 
+ * Primary: Blue (#2563eb / #3b82f6 dark)
+ * Accent: Green (#22c55e / #4ade80 dark)
+ * Background: White (#ffffff / #0f172a dark)
+ * Ideal for: Professional, tech-focused applications
+ */
+
+/* ===== MONOKAI PALETTE =====
+ * Primary: Pink (#f92672 / #ff006e dark)
+ * Accent: Green (#a6e22e / #b6e946 dark)
+ * Background: Cream (#fffaf3 / #18181b dark)
+ * Ideal for: Code editors, developer tools, creative apps
+ */
+
+/* ===== GITHUB PALETTE =====
+ * Primary: Blue (#0969da / #58a6ff dark)
+ * Accent: Orange (#fb8500 / #fb8500 dark)
+ * Background: White (#ffffff / #0d1117 dark)
+ * Ideal for: Developer platforms, collaborative tools
+ */
+
+/* ===== MATERIAL DESIGN PALETTE =====
+ * Primary: Purple (#6200ee / #bb86fc dark)
+ * Accent: Teal (#03dac6 / #03dac6 dark)
+ * Background: White (#ffffff / #121212 dark)
+ * Ideal for: Modern apps, Material Design systems
+ */
+
+/* ===== ORIGINAL PALETTE =====
+ * Primary: Blue (#3b82f6 / #2563eb dark)
+ * Accent: Orange (#f59e42 / #f59e0b dark)
+ * Background: White (#ffffff / #0f172a dark)
+ * Ideal for: Balanced, versatile applications
+ */
+
+/* ===== COLOR VARIABLES REFERENCE ===== */
+
+/* Primary Colors */
+:root {
+  --primary: /* Primary action color */
+  --primary-foreground: /* Text/content on primary background */
+  --primary-light: /* Light background variant of primary */
+}
+
+/* Accent Colors */
+:root {
+  --accent: /* Secondary action/highlight color */
+  --accent-foreground: /* Text/content on accent background */
+  --accent-light: /* Light background variant of accent */
+}
+
+/* Backgrounds & Surfaces */
+:root {
+  --background: /* Page/main background */
+  --foreground: /* Primary text color */
+  --card: /* Card/surface background */
+  --card-foreground: /* Text on cards */
+  --popover: /* Dropdown/popover background */
+  --popover-foreground: /* Text in popovers */
+  --secondary: /* Secondary surface */
+  --secondary-foreground: /* Text on secondary */
+  --muted: /* Muted/disabled backgrounds */
+  --muted-foreground: /* Muted text */
+}
+
+/* Borders & Inputs */
+:root {
+  --border: /* Default border color */
+  --input: /* Input field background */
+  --ring: /* Focus ring color (usually primary) */
+}
+
+/* Semantic Colors */
+:root {
+  --destructive: /* Error/delete/warning-red actions */
+  --destructive-light: /* Light background for destructive */
+  --success: /* Success/confirm actions */
+  --success-light: /* Light background for success */
+  --warning: /* Warning/caution states */
+  --warning-light: /* Light background for warning */
+  --info: /* Informational messages */
+  --info-light: /* Light background for info */
+}
+
+/* ===== RECOMMENDED COLOR COMBINATIONS ===== */
+
+/* Button Combinations */
+.btn-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.btn-primary-outline {
+  background-color: transparent;
+  border: 2px solid hsl(var(--primary));
+  color: hsl(var(--primary));
+}
+
+.btn-primary-ghost {
+  background-color: hsl(var(--primary-light));
+  color: hsl(var(--primary));
+}
+
+.btn-accent {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.btn-accent-light {
+  background-color: hsl(var(--accent-light));
+  color: hsl(var(--accent));
+}
+
+.btn-destructive {
+  background-color: hsl(var(--destructive));
+  color: white;
+}
+
+.btn-destructive-light {
+  background-color: hsl(var(--destructive-light));
+  color: hsl(var(--destructive));
+}
+
+.btn-success {
+  background-color: hsl(var(--success));
+  color: white;
+}
+
+.btn-success-light {
+  background-color: hsl(var(--success-light));
+  color: hsl(var(--success));
+}
+
+.btn-warning {
+  background-color: hsl(var(--warning));
+  color: white;
+}
+
+.btn-warning-light {
+  background-color: hsl(var(--warning-light));
+  color: hsl(var(--warning));
+}
+
+.btn-info {
+  background-color: hsl(var(--info));
+  color: white;
+}
+
+.btn-info-light {
+  background-color: hsl(var(--info-light));
+  color: hsl(var(--info));
+}
+
+/* Badge Combinations */
+.badge-primary {
+  background-color: hsl(var(--primary-light));
+  color: hsl(var(--primary));
+  border: 1px solid hsl(var(--primary));
+}
+
+.badge-accent {
+  background-color: hsl(var(--accent-light));
+  color: hsl(var(--accent));
+  border: 1px solid hsl(var(--accent));
+}
+
+.badge-destructive {
+  background-color: hsl(var(--destructive-light));
+  color: hsl(var(--destructive));
+  border: 1px solid hsl(var(--destructive));
+}
+
+.badge-success {
+  background-color: hsl(var(--success-light));
+  color: hsl(var(--success));
+  border: 1px solid hsl(var(--success));
+}
+
+.badge-warning {
+  background-color: hsl(var(--warning-light));
+  color: hsl(var(--warning));
+  border: 1px solid hsl(var(--warning));
+}
+
+.badge-info {
+  background-color: hsl(var(--info-light));
+  color: hsl(var(--info));
+  border: 1px solid hsl(var(--info));
+}
+
+/* Alert Combinations */
+.alert-destructive {
+  background-color: hsl(var(--destructive-light));
+  color: hsl(var(--destructive));
+  border: 1px solid hsl(var(--destructive));
+}
+
+.alert-success {
+  background-color: hsl(var(--success-light));
+  color: hsl(var(--success));
+  border: 1px solid hsl(var(--success));
+}
+
+.alert-warning {
+  background-color: hsl(var(--warning-light));
+  color: hsl(var(--warning));
+  border: 1px solid hsl(var(--warning));
+}
+
+.alert-info {
+  background-color: hsl(var(--info-light));
+  color: hsl(var(--info));
+  border: 1px solid hsl(var(--info));
+}
+
+/* Link Combinations */
+.link-primary {
+  color: hsl(var(--primary));
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.link-primary:hover {
+  color: hsl(var(--primary-light));
+  text-decoration: underline;
+}
+
+.link-accent {
+  color: hsl(var(--accent));
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.link-accent:hover {
+  color: hsl(var(--accent-light));
+  text-decoration: underline;
+}
+
+/* Input Combinations */
+.input-primary {
+  background-color: hsl(var(--input));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: border-color 0.2s;
+}
+
+.input-primary:focus {
+  border-color: hsl(var(--primary));
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+}
+
+/* Card Combinations */
+.card-primary {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-left: 4px solid hsl(var(--primary));
+  color: hsl(var(--card-foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.card-accent {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-left: 4px solid hsl(var(--accent));
+  color: hsl(var(--card-foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.card-success {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-left: 4px solid hsl(var(--success));
+  color: hsl(var(--card-foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.card-warning {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-left: 4px solid hsl(var(--warning));
+  color: hsl(var(--card-foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.card-error {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-left: 4px solid hsl(var(--destructive));
+  color: hsl(var(--card-foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+}

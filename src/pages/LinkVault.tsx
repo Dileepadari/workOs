@@ -111,37 +111,37 @@ export default function LinkVault() {
     return matchesSearch && matchesCat;
   });
 
-  // Short key exact match — auto-focus
+  // Short key exact match - auto-focus
   const exactMatch = search && links.find(l => l.short_key?.toLowerCase() === search.toLowerCase());
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
       <PageHeader title="Link Vault" />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{links.length} links saved</p>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Save Link</Button></DialogTrigger>
-          <DialogContent>
+          <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" />Save Link</Button></DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader><DialogTitle>{editingLink ? 'Edit Link' : 'Save a Link'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>URL</Label>
-                <Input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required placeholder="https://" />
+                <Label className="text-sm font-medium">URL</Label>
+                <Input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required placeholder="https://" className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Title</Label>
-                <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
+                <Label className="text-sm font-medium">Title</Label>
+                <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required className="h-9 text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Short Key</Label>
-                  <Input value={form.short_key} onChange={e => setForm({ ...form, short_key: e.target.value })} placeholder="e.g. gsoc26" />
+                  <Label className="text-sm font-medium">Short Key</Label>
+                  <Input value={form.short_key} onChange={e => setForm({ ...form, short_key: e.target.value })} placeholder="e.g. gsoc26" className="h-9 text-sm" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label className="text-sm font-medium">Category</Label>
                   <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {['development', 'reference', 'reading', 'tools', 'course', 'social', 'other'].map(c => (
                         <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
@@ -151,12 +151,12 @@ export default function LinkVault() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Tags (comma-separated)</Label>
-                <Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="react, docs" />
+                <Label className="text-sm font-medium">Tags (comma-separated)</Label>
+                <Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="react, docs" className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                <Label className="text-sm font-medium">Description</Label>
+                <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="h-9 text-sm" />
               </div>
               <Button type="submit" className="w-full">{editingLink ? 'Update Link' : 'Save Link'}</Button>
             </form>
@@ -171,7 +171,7 @@ export default function LinkVault() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search links, short keys, tags... (type a short key for instant open)"
-          className="pl-9"
+          className="pl-9 h-9 text-sm"
           autoFocus
         />
       </div>
@@ -179,15 +179,15 @@ export default function LinkVault() {
       {/* Exact short key match banner */}
       {exactMatch && (
         <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <Link2 className="h-5 w-5 text-primary" />
-              <div>
-                <p className="text-sm font-medium text-foreground">{exactMatch.title}</p>
-                <p className="text-xs text-muted-foreground">{exactMatch.url}</p>
+          <CardContent className="flex items-center justify-between p-4 sm:p-6">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <Link2 className="h-5 w-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{exactMatch.title}</p>
+                <p className="text-xs text-muted-foreground truncate">{exactMatch.url}</p>
               </div>
             </div>
-            <Button size="sm" onClick={() => handleOpen(exactMatch)}>Open <ExternalLink className="ml-1 h-3 w-3" /></Button>
+            <Button size="sm" onClick={() => handleOpen(exactMatch)} className="ml-2 shrink-0">Open <ExternalLink className="ml-1 h-3.5 w-3.5" /></Button>
           </CardContent>
         </Card>
       )}
@@ -195,41 +195,41 @@ export default function LinkVault() {
       {/* Filter pills */}
       <div className="flex gap-2 flex-wrap">
         {['all', 'development', 'reference', 'reading', 'tools', 'course', 'other'].map(c => (
-          <Button key={c} variant={categoryFilter === c ? 'default' : 'secondary'} size="sm" onClick={() => setCategoryFilter(c)} className="capitalize">
+          <Button key={c} variant={categoryFilter === c ? 'default' : 'outline'} size="sm" onClick={() => setCategoryFilter(c)} className="capitalize text-xs h-9">
             {c}
           </Button>
         ))}
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No links found</CardContent></Card>
+        <Card><CardContent className="py-12 text-center"><p className="text-sm text-muted-foreground">No links found</p></CardContent></Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filtered.map(l => (
-            <Card key={l.id} className="group transition-colors hover:bg-card/80">
-              <CardContent className="flex items-center gap-4 p-4">
+            <Card key={l.id} className="group transition-colors hover:bg-muted/50">
+              <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
                 <img src={`https://www.google.com/s2/favicons?domain=${new URL(l.url).hostname}&sz=32`} alt="" className="h-5 w-5 rounded shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => handleOpen(l)} className="text-sm font-medium text-foreground hover:text-primary truncate">{l.title}</button>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <button onClick={() => handleOpen(l)} className="text-sm sm:text-base font-semibold text-foreground hover:text-primary truncate">{l.title}</button>
                     {l.short_key && <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{l.short_key}</code>}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{l.url}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">{l.url}</p>
                   {l.tags.length > 0 && (
-                    <div className="mt-1 flex gap-1 flex-wrap">
+                    <div className="mt-2 flex gap-1 flex-wrap">
                       {l.tags.map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
                     </div>
                   )}
                 </div>
                 <Badge className={`text-xs capitalize shrink-0 ${categoryColors[l.category] || ''}`}>{l.category}</Badge>
-                <span className="text-xs text-muted-foreground shrink-0">{l.click_count} opens</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopy(l.url)}><Copy className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpen(l)}><ExternalLink className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(l)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">{l.click_count}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleCopy(l.url)} title="Copy URL"><Copy className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleOpen(l)} title="Open link"><ExternalLink className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleEdit(l)} title="Edit"><Edit2 className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(l.id)} title="Delete"><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </CardContent>
             </Card>

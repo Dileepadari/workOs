@@ -1,0 +1,186 @@
+/* Page and Container Utilities */
+@layer components {
+  /* Page Wrapper - Use on main page div */
+  .page-wrapper {
+    @apply animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6;
+  }
+
+  /* Page Section - Use for major content sections */
+  .page-section {
+    @apply space-y-4;
+  }
+
+  /* Page Header Container */
+  .page-header-container {
+    @apply flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  /* Page Title */
+  .page-title {
+    @apply text-2xl sm:text-3xl font-bold text-foreground;
+  }
+
+  /* Section Title */
+  .section-title {
+    @apply text-lg sm:text-xl font-semibold text-foreground;
+  }
+
+  /* Subsection Title */
+  .subsection-title {
+    @apply text-base font-semibold text-foreground;
+  }
+
+  /* Secondary Text */
+  .secondary-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Small Text */
+  .small-text {
+    @apply text-xs text-muted-foreground;
+  }
+
+  /* Body Text */
+  .body-text {
+    @apply text-sm text-foreground;
+  }
+
+  /* Card Wrapper - Standard padding for cards */
+  .card-wrapper {
+    @apply p-4 sm:p-6;
+  }
+
+  /* Card Content Container */
+  .card-content-wrapper {
+    @apply space-y-3 sm:space-y-4;
+  }
+
+  /* Grid with consistent gap */
+  .grid-standard {
+    @apply gap-4 sm:gap-6;
+  }
+
+  /* Dialog Content */
+  .dialog-content-wrapper {
+    @apply space-y-4;
+  }
+
+  /* Form Group */
+  .form-group {
+    @apply space-y-2;
+  }
+
+  /* Form Label */
+  .form-label {
+    @apply text-xs sm:text-sm font-medium;
+  }
+
+  /* Form Input Standard */
+  .form-input-standard {
+    @apply h-9 text-sm;
+  }
+
+  /* Flex Gap Standard */
+  .flex-gap-standard {
+    @apply gap-3 sm:gap-4;
+  }
+
+  /* List Item Hover */
+  .list-item-hover {
+    @apply transition-colors hover:bg-muted/50;
+  }
+
+  /* Badge Action Button */
+  .badge-action {
+    @apply cursor-pointer hover:opacity-75 transition-opacity;
+  }
+
+  /* Empty State */
+  .empty-state {
+    @apply py-12 text-center;
+  }
+
+  /* Empty State Text */
+  .empty-state-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Loading State */
+  .loading-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Tab Content */
+  .tab-content {
+    @apply space-y-3 sm:space-y-4 mt-6;
+  }
+
+  /* Grid Responsive */
+  .grid-responsive-2-to-3 {
+    @apply grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-responsive-1-to-3 {
+    @apply grid grid-cols-1 gap-6 lg:grid-cols-3;
+  }
+
+  /* Action Group */
+  .action-group {
+    @apply flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0;
+  }
+
+  /* Icon Button Standard */
+  .icon-button-standard {
+    @apply h-8 w-8;
+  }
+
+  /* Button Size Consistency */
+  .button-sm {
+    @apply h-9 text-sm;
+  }
+}
+
+/* High Contrast Text Classes */
+@layer components {
+  .text-contrast-high {
+    @apply text-foreground;
+  }
+
+  .text-contrast-medium {
+    @apply text-muted-foreground;
+  }
+
+  .text-contrast-link {
+    @apply text-primary hover:text-primary/80 transition-colors;
+  }
+
+  .bg-subtle {
+    @apply bg-muted/5;
+  }
+
+  .bg-slightly-visible {
+    @apply bg-muted/10;
+  }
+
+  .bg-visible {
+    @apply bg-muted/20;
+  }
+
+  /* Hover State Standard */
+  .hover-lift {
+    @apply transition-all hover:shadow-md;
+  }
+
+  .hover-tone {
+    @apply transition-colors hover:bg-muted/50;
+  }
+}
+
+/* Print/Accessibility */
+@layer components {
+  @media print {
+    .no-print {
+      @apply hidden;
+    }
+  }
+}

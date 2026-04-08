@@ -81,7 +81,7 @@ export default function WeeklyReview() {
     <div className="animate-fade-in space-y-6">
       <PageHeader title="Weekly Review" />
 
-      <p className="text-sm text-muted-foreground">Week of {format(startOfWeek(new Date()), 'MMM d')} — {format(endOfWeek(new Date()), 'MMM d, yyyy')}</p>
+      <p className="text-sm text-muted-foreground">Week of {format(startOfWeek(new Date()), 'MMM d')} - {format(endOfWeek(new Date()), 'MMM d, yyyy')}</p>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

@@ -5,21 +5,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { FolderKanban, CheckSquare, Link2, FileText, Search } from 'lucide-react';
+import { FolderKanban, CheckSquare, Link2, FileText, Search, Flag, Calendar, Video } from 'lucide-react';
 
 interface SearchResult {
-  type: 'project' | 'task' | 'link' | 'note';
+  type: 'project' | 'task' | 'link' | 'note' | 'milestone' | 'meeting' | 'resource';
   id: string;
   title: string;
   subtitle?: string;
   url?: string;
 }
 
-const typeIcons = {
+const typeIcons: Record<string, any> = {
   project: FolderKanban,
   task: CheckSquare,
   link: Link2,
   note: FileText,
+  milestone: Flag,
+  meeting: Calendar,
+  resource: FileText,
 };
 
 interface Props {
@@ -37,18 +40,35 @@ export function QuickSearch({ open, onClose }: Props) {
   const search = useCallback(async (q: string) => {
     if (!q.trim() || !user) { setResults([]); return; }
     const pattern = `%${q}%`;
-    const [projects, tasks, links, notes] = await Promise.all([
+    const [projects, tasks, links, notes, milestones, meetings, resources] = await Promise.all([
       supabase.from('projects').select('id, name, slug, type').ilike('name', pattern).limit(5),
       supabase.from('tasks').select('id, title, status').ilike('title', pattern).limit(5),
-      supabase.from('links').select('id, title, url, short_key').or(`title.ilike.${pattern},url.ilike.${pattern},short_key.ilike.${pattern}`).limit(5),
+      supabase.from('links').select('id, title, url, short_key, tags, description').or(`title.ilike.${pattern},url.ilike.${pattern},short_key.ilike.${pattern},description.ilike.${pattern}`).limit(5),
       supabase.from('notes').select('id, title').ilike('title', pattern).limit(5),
+      supabase.from('milestones').select('id, title, date').ilike('title', pattern).limit(5),
+      supabase.from('meetings').select('id, title, scheduled_at').ilike('title', pattern).limit(5),
+      supabase.from('resources').select('id, title, url, type').ilike('title', pattern).limit(5),
     ]);
     const r: SearchResult[] = [
       ...(projects.data ?? []).map(p => ({ type: 'project' as const, id: p.slug || p.id, title: p.name, subtitle: p.type })),
       ...(tasks.data ?? []).map(t => ({ type: 'task' as const, id: t.id, title: t.title, subtitle: t.status })),
       ...(links.data ?? []).map(l => ({ type: 'link' as const, id: l.id, title: l.title, subtitle: l.url, url: l.url })),
       ...(notes.data ?? []).map(n => ({ type: 'note' as const, id: n.id, title: n.title })),
+      ...(milestones.data ?? []).map(m => ({ type: 'milestone' as const, id: m.id, title: m.title, subtitle: m.date })),
+      ...(meetings.data ?? []).map(m => ({ type: 'meeting' as const, id: m.id, title: m.title, subtitle: m.scheduled_at })),
+      ...(resources.data ?? []).map(r => ({ type: 'resource' as const, id: r.id, title: r.title, subtitle: r.type, url: r.url })),
     ];
+
+    // Also search links by tags
+    if (q.length >= 2) {
+      const { data: tagLinks } = await supabase.from('links').select('id, title, url, short_key').contains('tags', [q]).limit(3);
+      (tagLinks ?? []).forEach(l => {
+        if (!r.find(x => x.id === l.id)) {
+          r.push({ type: 'link', id: l.id, title: l.title, subtitle: l.url, url: l.url });
+        }
+      });
+    }
+
     setResults(r);
     setSelectedIndex(0);
   }, [user]);
@@ -67,7 +87,10 @@ export function QuickSearch({ open, onClose }: Props) {
     if (result.type === 'project') navigate(`/projects/${result.id}`);
     else if (result.type === 'task') navigate('/tasks');
     else if (result.type === 'link' && result.url) window.open(result.url, '_blank');
+    else if (result.type === 'resource' && result.url) window.open(result.url, '_blank');
     else if (result.type === 'note') navigate('/notes');
+    else if (result.type === 'milestone') navigate('/calendar');
+    else if (result.type === 'meeting') navigate('/calendar');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -85,7 +108,7 @@ export function QuickSearch({ open, onClose }: Props) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search projects, tasks, links, notes..."
+            placeholder="Search everything... projects, tasks, links, notes, meetings"
             className="border-0 p-0 h-auto focus-visible:ring-0 text-sm"
             autoFocus
           />
@@ -94,7 +117,7 @@ export function QuickSearch({ open, onClose }: Props) {
         {results.length > 0 && (
           <div className="max-h-80 overflow-y-auto py-2">
             {results.map((r, i) => {
-              const Icon = typeIcons[r.type];
+              const Icon = typeIcons[r.type] || FileText;
               return (
                 <button
                   key={`${r.type}-${r.id}`}

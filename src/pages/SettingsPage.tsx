@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Tag, Sun, Moon, Shield, Database } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { ColorThemeSelector } from '@/components/ColorThemeSelector';
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -81,7 +82,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">{theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}Appearance</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <Label>Dark Mode</Label>
@@ -91,6 +92,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Color Theme */}
+      <ColorThemeSelector />
 
       {/* Quick Links */}
       <Card>

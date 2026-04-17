@@ -1,30 +1,69 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, RotateCcw, X, CheckSquare } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Play, Pause, RotateCcw, CheckSquare, Settings, Volume2, VolumeX } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Task { id: string; title: string; status: string; priority: string; project_id: string | null; }
 interface Project { id: string; name: string; color: string; }
 
+const BEEP_FREQUENCY = 800;
+const BEEP_DURATION = 200;
+
+function playBeep(count = 3) {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    for (let i = 0; i < count; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = BEEP_FREQUENCY;
+      osc.type = 'sine';
+      gain.gain.value = 0.3;
+      const start = ctx.currentTime + i * 0.35;
+      osc.start(start);
+      osc.stop(start + BEEP_DURATION / 1000);
+    }
+  } catch {}
+}
+
+function sendNotification(title: string, body: string) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/favicon.ico' });
+  }
+}
+
 export default function FocusMode() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 min
+  const [focusDuration, setFocusDuration] = useState(25);
+  const [breakDuration, setBreakDuration] = useState(5);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isBreak, setIsBreak] = useState(false);
   const [sessions, setSessions] = useState(0);
   const [completeTaskConfirm, setCompleteTaskConfirm] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -39,28 +78,40 @@ export default function FocusMode() {
     load();
   }, [user]);
 
+  const handleTimerComplete = useCallback(() => {
+    if (!isBreak) {
+      setSessions(s => s + 1);
+      if (soundEnabled) playBeep(3);
+      sendNotification('Focus session complete! 🎉', 'Time for a break.');
+      setIsBreak(true);
+      setTimeLeft(breakDuration * 60);
+    } else {
+      if (soundEnabled) playBeep(2);
+      sendNotification('Break over! 💪', 'Ready for another focus session?');
+      setIsBreak(false);
+      setTimeLeft(focusDuration * 60);
+    }
+    setIsRunning(false);
+  }, [isBreak, breakDuration, focusDuration, soundEnabled]);
+
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
       intervalRef.current = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    } else if (timeLeft === 0) {
-      // Timer done
-      if (!isBreak) {
-        setSessions(s => s + 1);
-        setIsBreak(true);
-        setTimeLeft(5 * 60);
-        // Play sound
-        try { new Audio('data:audio/wav;base64,UklGRl9vT19teleV...').play(); } catch {}
-      } else {
-        setIsBreak(false);
-        setTimeLeft(25 * 60);
-      }
-      setIsRunning(false);
+    } else if (timeLeft === 0 && isRunning) {
+      handleTimerComplete();
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isRunning, timeLeft]);
+  }, [isRunning, timeLeft, handleTimerComplete]);
 
   const toggleTimer = () => setIsRunning(!isRunning);
-  const resetTimer = () => { setIsRunning(false); setTimeLeft(isBreak ? 5 * 60 : 25 * 60); };
+  const resetTimer = () => { setIsRunning(false); setTimeLeft(isBreak ? breakDuration * 60 : focusDuration * 60); };
+
+  const applySettings = () => {
+    if (!isRunning) {
+      setTimeLeft(isBreak ? breakDuration * 60 : focusDuration * 60);
+    }
+    setSettingsOpen(false);
+  };
 
   const completeTask = async () => {
     if (!selectedTask) return;
@@ -72,7 +123,8 @@ export default function FocusMode() {
 
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
-  const pct = isBreak ? ((5 * 60 - timeLeft) / (5 * 60)) * 100 : ((25 * 60 - timeLeft) / (25 * 60)) * 100;
+  const totalSecs = isBreak ? breakDuration * 60 : focusDuration * 60;
+  const pct = ((totalSecs - timeLeft) / totalSecs) * 100;
   const currentTask = tasks.find(t => t.id === selectedTask);
   const projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
 
@@ -115,6 +167,12 @@ export default function FocusMode() {
         <Button size="lg" onClick={toggleTimer} className="h-14 w-14 rounded-full">
           {isRunning ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
         </Button>
+        <Button variant="outline" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Mute sound' : 'Enable sound'}>
+          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        </Button>
+        <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)} title="Timer settings">
+          <Settings className="h-4 w-4" />
+        </Button>
         {selectedTask && (
           <Button variant="outline" size="icon" onClick={() => setCompleteTaskConfirm(true)} title="Mark task complete">
             <CheckSquare className="h-4 w-4" />
@@ -139,6 +197,29 @@ export default function FocusMode() {
 
       {/* Session counter */}
       <p className="text-xs text-muted-foreground">{sessions} pomodoro session{sessions !== 1 ? 's' : ''} completed</p>
+
+      {/* Settings Dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Timer Settings</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Focus Duration (minutes)</Label>
+              <Input type="number" min={1} max={120} value={focusDuration} onChange={e => setFocusDuration(Number(e.target.value) || 25)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Break Duration (minutes)</Label>
+              <Input type="number" min={1} max={60} value={breakDuration} onChange={e => setBreakDuration(Number(e.target.value) || 5)} />
+            </div>
+            <div className="flex gap-2">
+              {[15, 25, 45, 60].map(d => (
+                <Button key={d} variant={focusDuration === d ? 'default' : 'outline'} size="sm" onClick={() => setFocusDuration(d)}>{d}m</Button>
+              ))}
+            </div>
+            <Button onClick={applySettings} className="w-full">Apply</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={completeTaskConfirm}

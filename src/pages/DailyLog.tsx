@@ -4,17 +4,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Plus, Zap, AlertCircle, Trophy, Trash2 } from 'lucide-react';
-import { format, addDays, subDays } from 'date-fns';
+import { ChevronLeft, ChevronRight, Plus, Zap, AlertCircle, Trophy, Trash2, ListTodo, Flag } from 'lucide-react';
+import { format, addDays, subDays, isSameDay } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 interface DailyLog {
   id: string; date: string; notes_html: string | null;
   energy_level: number | null; wins: string[]; blockers: string[];
+}
+
+interface TodayItem {
+  id: string;
+  title: string;
+  type: 'task' | 'milestone';
+  time?: string;
+  priority?: string;
 }
 
 const energyEmojis = ['', '😩', '😴', '😐', '😊', '🔥'];
@@ -30,21 +37,32 @@ export default function DailyLogPage() {
   const [newBlocker, setNewBlocker] = useState('');
   const [deleteWinConfirm, setDeleteWinConfirm] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
   const [deleteBlockerConfirm, setDeleteBlockerConfirm] = useState<{ open: boolean; index: number | null }>({ open: false, index: null });
+  const [todayItems, setTodayItems] = useState<TodayItem[]>([]);
 
   const fetchLog = async (date: string) => {
     setLoading(true);
-    const { data } = await supabase.from('daily_log').select('*').eq('date', date).maybeSingle();
+    const [logRes, tasksRes, milestonesRes] = await Promise.all([
+      supabase.from('daily_log').select('*').eq('date', date).maybeSingle(),
+      supabase.from('tasks').select('id, title, due_date, due_time, priority, status').eq('due_date', date),
+      supabase.from('milestones').select('id, title, date, is_completed').eq('date', date),
+    ]);
+    
+    const data = logRes.data;
     setLog(data);
     if (data) {
-      setForm({
-        notes: data.notes_html ?? '',
-        energy: data.energy_level ?? 4,
-        wins: '',
-        blockers: '',
-      });
+      setForm({ notes: data.notes_html ?? '', energy: data.energy_level ?? 4, wins: '', blockers: '' });
     } else {
       setForm({ notes: '', energy: 4, wins: '', blockers: '' });
     }
+
+    const items: TodayItem[] = [];
+    (tasksRes.data ?? []).forEach(t => {
+      items.push({ id: t.id, title: t.title, type: 'task', time: t.due_time || undefined, priority: t.priority });
+    });
+    (milestonesRes.data ?? []).forEach(m => {
+      items.push({ id: m.id, title: m.title, type: 'milestone' });
+    });
+    setTodayItems(items);
     setLoading(false);
   };
 
@@ -132,6 +150,34 @@ export default function DailyLogPage() {
         <div className="flex h-32 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
       ) : (
         <div className="space-y-4">
+          {/* Today's Schedule - auto-populated from tasks/milestones */}
+          {todayItems.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm"><ListTodo className="h-4 w-4 text-primary" />Today's Schedule</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {todayItems.map(item => (
+                  <div key={item.id} className="flex items-center gap-3 text-sm rounded-md p-2 bg-muted/30">
+                    {item.type === 'task' ? (
+                      <ListTodo className="h-3.5 w-3.5 text-primary shrink-0" />
+                    ) : (
+                      <Flag className="h-3.5 w-3.5 text-warning shrink-0" />
+                    )}
+                    <span className="text-foreground flex-1">{item.title}</span>
+                    {item.time && (
+                      <span className="text-xs text-muted-foreground">{item.time}</span>
+                    )}
+                    {item.priority && (
+                      <Badge variant="secondary" className="text-xs capitalize">{item.priority}</Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs capitalize">{item.type}</Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Energy Level */}
           <Card>
             <CardHeader className="pb-2">
@@ -165,12 +211,7 @@ export default function DailyLogPage() {
                   <div key={i} className="flex items-center gap-2 text-sm text-foreground group">
                     <span className="text-success">✓</span> 
                     <span className="flex-1">{win}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                      onClick={() => setDeleteWinConfirm({ open: true, index: i })}
-                    >
+                    <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive" onClick={() => setDeleteWinConfirm({ open: true, index: i })}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -192,12 +233,7 @@ export default function DailyLogPage() {
                   <div key={i} className="flex items-center gap-2 text-sm text-foreground group">
                     <span className="text-destructive">•</span> 
                     <span className="flex-1">{b}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                      onClick={() => setDeleteBlockerConfirm({ open: true, index: i })}
-                    >
+                    <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive" onClick={() => setDeleteBlockerConfirm({ open: true, index: i })}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

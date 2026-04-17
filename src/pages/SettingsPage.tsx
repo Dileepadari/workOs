@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Download, Tag, Sun, Moon, Shield, Database } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
+import { CalendarIntegrationSettings } from '@/components/CalendarIntegrationSettings';
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -95,6 +96,9 @@ export default function SettingsPage() {
 
       {/* Color Theme */}
       <ColorThemeSelector />
+
+      {/* Calendar Integrations */}
+      <CalendarIntegrationSettings />
 
       {/* Quick Links */}
       <Card>

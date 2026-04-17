@@ -3,13 +3,15 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckSquare, Plus, Link2, Calendar, AlertTriangle, TrendingUp } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, addDays, isWithinInterval } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { CheckSquare, Plus, Link2, Calendar, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, isWithinInterval } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 
 export default function WeeklyReview() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [weekOffset, setWeekOffset] = useState(0);
   const [stats, setStats] = useState({
     completedTasks: 0,
     newTasks: 0,
@@ -20,12 +22,14 @@ export default function WeeklyReview() {
   });
   const [nextWeekTasks, setNextWeekTasks] = useState<{ title: string; project?: string; due_date: string }[]>([]);
 
+  const currentWeekDate = weekOffset === 0 ? new Date() : (weekOffset > 0 ? addWeeks(new Date(), weekOffset) : subWeeks(new Date(), Math.abs(weekOffset)));
+  const weekStart = startOfWeek(currentWeekDate);
+  const weekEnd = endOfWeek(currentWeekDate);
+
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const now = new Date();
-      const weekStart = startOfWeek(now);
-      const weekEnd = endOfWeek(now);
+      setLoading(true);
       const nextStart = addDays(weekEnd, 1);
       const nextEnd = addDays(nextStart, 6);
 
@@ -73,7 +77,7 @@ export default function WeeklyReview() {
       setLoading(false);
     };
     load();
-  }, [user]);
+  }, [user, weekOffset]);
 
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
 
@@ -81,7 +85,23 @@ export default function WeeklyReview() {
     <div className="animate-fade-in space-y-6">
       <PageHeader title="Weekly Review" />
 
-      <p className="text-sm text-muted-foreground">Week of {format(startOfWeek(new Date()), 'MMM d')} - {format(endOfWeek(new Date()), 'MMM d, yyyy')}</p>
+      {/* Week navigation */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setWeekOffset(o => o - 1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[200px] text-center text-foreground">
+            {format(weekStart, 'MMM d')} – {format(weekEnd, 'MMM d, yyyy')}
+          </span>
+          <Button variant="ghost" size="icon" onClick={() => setWeekOffset(o => o + 1)} disabled={weekOffset >= 0}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)} disabled={weekOffset === 0}>
+          This Week
+        </Button>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

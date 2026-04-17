@@ -1,4 +1,3 @@
-# Welcome to WorkOs
+# Welcome to your Lovable project
 
-A personal manager for all your works 
- 
+TODO: Document your project here

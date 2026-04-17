@@ -19,9 +19,10 @@ interface Task {
   id: string;
   title: string;
   description: string | null;
-  status: 'todo' | 'in_progress' | 'done';
+  status: 'todo' | 'in_progress' | 'done' | 'blocked' | 'dropped';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date: string | null;
+  due_time: string | null;
   project_id: string | null;
   created_at: string;
 }
@@ -30,10 +31,10 @@ interface Project { id: string; name: string; color: string; }
 
 type TaskForm = {
   title: string; description: string; status: Task['status'];
-  priority: Task['priority']; due_date: string; project_id: string;
+  priority: Task['priority']; due_date: string; due_time: string; project_id: string;
 };
 
-const emptyForm: TaskForm = { title: '', description: '', status: 'todo', priority: 'medium', due_date: '', project_id: '' };
+const emptyForm: TaskForm = { title: '', description: '', status: 'todo', priority: 'medium', due_date: '', due_time: '', project_id: '' };
 
 const priorityColors: Record<string, string> = {
   urgent: 'bg-destructive/20 text-destructive',
@@ -42,7 +43,7 @@ const priorityColors: Record<string, string> = {
   low: 'bg-muted text-muted-foreground',
 };
 
-const statusLabels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
+const statusLabels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked', dropped: 'Dropped' };
 
 export default function Tasks() {
   const { user } = useAuth();
@@ -78,6 +79,7 @@ export default function Tasks() {
       status: form.status,
       priority: form.priority,
       due_date: form.due_date || null,
+      due_time: form.due_time || null,
       project_id: form.project_id || null,
     };
     if (editingTask) {
@@ -98,6 +100,7 @@ export default function Tasks() {
       status: task.status,
       priority: task.priority,
       due_date: task.due_date ?? '',
+      due_time: task.due_time ?? '',
       project_id: task.project_id ?? '',
     });
     setDialogOpen(true);
@@ -140,6 +143,8 @@ export default function Tasks() {
     todo: filteredTasks.filter((t) => t.status === 'todo'),
     in_progress: filteredTasks.filter((t) => t.status === 'in_progress'),
     done: filteredTasks.filter((t) => t.status === 'done'),
+    blocked: filteredTasks.filter((t) => t.status === 'blocked'),
+    dropped: filteredTasks.filter((t) => t.status === 'dropped'),
   };
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p]));
@@ -188,14 +193,20 @@ export default function Tasks() {
                       <SelectItem value="todo">To Do</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
                       <SelectItem value="done">Done</SelectItem>
+                      <SelectItem value="blocked">Blocked</SelectItem>
+                      <SelectItem value="dropped">Dropped</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Due Date</Label>
                   <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="h-9 text-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Due Time</Label>
+                  <Input type="time" value={form.due_time} onChange={(e) => setForm({ ...form, due_time: e.target.value })} className="h-9 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Project</Label>
@@ -216,7 +227,7 @@ export default function Tasks() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {['all', 'todo', 'in_progress', 'done'].map((s) => (
+        {['all', 'todo', 'in_progress', 'done', 'blocked', 'dropped'].map((s) => (
           <Button key={s} variant={filter === s ? 'default' : 'outline'} size="sm" onClick={() => setFilter(s)} className="text-xs">
             {s === 'all' ? 'All' : statusLabels[s]}
           </Button>
@@ -227,7 +238,7 @@ export default function Tasks() {
         <p className="text-sm text-muted-foreground">Loading...</p>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {(['todo', 'in_progress', 'done'] as const).map((status) => (
+          {(['todo', 'in_progress', 'done', 'blocked', 'dropped'] as const).map((status) => (
             <Card key={status}>
               <CardHeader className="pb-4 sm:pb-6">
                 <CardTitle className="flex items-center justify-between text-sm font-semibold">
@@ -261,7 +272,7 @@ export default function Tasks() {
                         {task.due_date && (
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
-                            {format(new Date(task.due_date), 'MMM d')}
+                            {format(new Date(task.due_date), 'MMM d')}{task.due_time ? ` ${task.due_time}` : ''}
                           </span>
                         )}
                       </div>

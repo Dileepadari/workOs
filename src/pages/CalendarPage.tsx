@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, CheckSquare, Flag, Calendar as CalIcon, Video, Plus, Pencil, Trash2, Clock, Sparkles } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, isToday, addDays } from 'date-fns';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { ChevronLeft, ChevronRight, CheckSquare, Flag, Calendar as CalIcon, Video, Plus, Pencil, Trash2, Clock, Sparkles, Download, Upload, RefreshCw, Link2 } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, isToday, addDays, parseISO } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/hooks/use-toast';
+import { getCalendarIntegrations, syncCalendarEvents, parseICS as robustParseICS } from '@/integrations/calendar/sync';
 
 interface CalEvent {
   id: string;
@@ -26,9 +28,107 @@ interface CalEvent {
 
 type ViewMode = 'month' | 'week' | 'agenda';
 
+// ICS helpers
+function escapeICS(str: string) {
+  return str.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+
+function formatICSDate(d: Date) {
+  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+function generateICS(events: CalEvent[]): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//WorkOS//Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+  ];
+  events.forEach(ev => {
+    const start = formatICSDate(ev.date);
+    const end = formatICSDate(new Date(ev.date.getTime() + 60 * 60 * 1000));
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${ev.realId}@workos`);
+    lines.push(`DTSTART:${start}`);
+    lines.push(`DTEND:${end}`);
+    lines.push(`SUMMARY:${escapeICS(ev.title)}`);
+    lines.push(`CATEGORIES:${ev.type.toUpperCase()}`);
+    if (ev.rawData?.description) lines.push(`DESCRIPTION:${escapeICS(ev.rawData.description)}`);
+    if (ev.rawData?.location) lines.push(`LOCATION:${escapeICS(ev.rawData.location)}`);
+    if (ev.rawData?.attendees) lines.push(`ATTENDEE:${escapeICS(ev.rawData.attendees)}`);
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function parseICSForExport(content: string): { title: string; date: string; time: string; description: string; location: string }[] {
+  const events: any[] = [];
+  const blocks = content.split('BEGIN:VEVENT');
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i].split('END:VEVENT')[0];
+    const getField = (name: string) => {
+      const match = block.match(new RegExp(`${name}[^:]*:(.+?)(?:\\r?\\n(?!\\s)|$)`, 's'));
+      return match ? match[1].replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\').trim() : '';
+    };
+    const dtstart = getField('DTSTART');
+    let date = '', time = '';
+    if (dtstart) {
+      // Parse YYYYMMDDTHHMMSS or YYYYMMDD
+      const clean = dtstart.replace(/Z$/, '');
+      if (clean.length >= 8) {
+        date = `${clean.slice(0,4)}-${clean.slice(4,6)}-${clean.slice(6,8)}`;
+        if (clean.length >= 13) {
+          time = `${clean.slice(9,11)}:${clean.slice(11,13)}`;
+        }
+      }
+    }
+    events.push({
+      title: getField('SUMMARY'),
+      date,
+      time,
+      description: getField('DESCRIPTION'),
+      location: getField('LOCATION'),
+    });
+  }
+  return events.filter(e => e.title && e.date);
+}
+
+function generateGoogleCalLink(ev: CalEvent): string {
+  const start = formatICSDate(ev.date);
+  const end = formatICSDate(new Date(ev.date.getTime() + 60 * 60 * 1000));
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: ev.title,
+    dates: `${start}/${end}`,
+  });
+  if (ev.rawData?.description) params.set('details', ev.rawData.description);
+  if (ev.rawData?.location) params.set('location', ev.rawData.location);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function generateOutlookLink(ev: CalEvent): string {
+  const start = ev.date.toISOString();
+  const end = new Date(ev.date.getTime() + 60 * 60 * 1000).toISOString();
+  const params = new URLSearchParams({
+    subject: ev.title,
+    startdt: start,
+    enddt: end,
+    path: '/calendar/action/compose',
+    rru: 'addevent',
+  });
+  if (ev.rawData?.description) params.set('body', ev.rawData.description);
+  if (ev.rawData?.location) params.set('location', ev.rawData.location);
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadingRef = useRef(false); // Prevent concurrent loadEvents calls
+  const lastLoadUserRef = useRef<string | null>(null); // Track last loaded user
   const [current, setCurrent] = useState(new Date());
   const [view, setView] = useState<ViewMode>('month');
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -39,20 +139,29 @@ export default function CalendarPage() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [eventForm, setEventForm] = useState({ title: '', type: 'task' as string, date: '', time: '', project_id: '', description: '', attendees: '', agenda: '', location: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<CalEvent | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('workos_last_sync'));
 
-  const loadEvents = async () => {
-    if (!user) return;
-    const [tasksRes, msRes, meetRes, eventsRes, projRes] = await Promise.all([
-      supabase.from('tasks').select('id, title, due_date, due_time, priority, project_id, status, time_estimate_min, description').not('due_date', 'is', null),
-      supabase.from('milestones').select('id, title, date, is_completed, project_id'),
-      supabase.from('meetings').select('id, title, scheduled_at, attendees, agenda_html, notes_html, action_items, project_id'),
-      supabase.from('events').select('id, title, scheduled_at, description, location, color, project_id'),
-      supabase.from('projects').select('id, name'),
+  const loadEvents = useCallback(async () => {
+    if (!user || loadingRef.current) return; // Skip if already loading
+    
+    loadingRef.current = true;
+    try {
+      const [tasksRes, msRes, meetRes, projRes, syncedRes, eventsRes] = await Promise.all([
+      supabase.from('tasks').select('id, title, due_date, due_time, priority, project_id, status, time_estimate_min, description').eq('user_id', user.id).not('due_date', 'is', null),
+      supabase.from('milestones').select('id, title, date, is_completed, project_id').eq('user_id', user.id),
+      supabase.from('meetings').select('id, title, scheduled_at, attendees, agenda_html, notes_html, action_items, project_id').eq('user_id', user.id),
+      supabase.from('projects').select('id, name').eq('user_id', user.id),
+      supabase.from('synced_events').select('*').eq('user_id', user.id),
+      supabase.from('events').select('id, title, scheduled_at, description, color, project_id').eq('user_id', user.id),
     ]);
     setProjects(projRes.data ?? []);
     const items: CalEvent[] = [];
     (tasksRes.data ?? []).forEach(t => {
-      if (t.due_date) items.push({ id: `t-${t.id}`, realId: t.id, title: t.title, date: new Date(t.due_date), type: 'task', meta: t.priority, rawData: t });
+      if (t.due_date) {
+        const d = t.due_time ? new Date(`${t.due_date}T${t.due_time}`) : new Date(t.due_date);
+        items.push({ id: `t-${t.id}`, realId: t.id, title: t.title, date: d, type: 'task', meta: t.priority, rawData: t });
+      }
     });
     (msRes.data ?? []).forEach(m => {
       items.push({ id: `m-${m.id}`, realId: m.id, title: m.title, date: new Date(m.date), type: 'milestone', meta: m.is_completed ? 'done' : 'pending', rawData: m });
@@ -60,14 +169,82 @@ export default function CalendarPage() {
     (meetRes.data ?? []).forEach(m => {
       items.push({ id: `mt-${m.id}`, realId: m.id, title: m.title, date: new Date(m.scheduled_at), type: 'meeting', rawData: m });
     });
+    // Add general events
     (eventsRes.data ?? []).forEach(e => {
-      items.push({ id: `e-${e.id}`, realId: e.id, title: e.title, date: new Date(e.scheduled_at), type: 'event', rawData: e });
+      items.push({ id: `e-${e.id}`, realId: e.id, title: e.title, date: new Date(e.scheduled_at), type: 'event', meta: e.color || '#3b82f6', rawData: e });
+    });
+    // Add synced events from external calendars
+    (syncedRes.data ?? []).forEach((s: any) => {
+      items.push({
+        id: `sync-${s.id}`,
+        realId: s.id,
+        title: s.title,
+        date: new Date(s.start_time),
+        type: 'event',
+        meta: `${s.provider} synced`,
+        rawData: s,
+      });
     });
     setEvents(items);
     setLoading(false);
-  };
+    } finally {
+      loadingRef.current = false; // Allow next load
+    }
+  }, [user]);
 
-  useEffect(() => { loadEvents(); }, [user]);
+  useEffect(() => {
+    // Only load if user changed to a different user
+    if (user && lastLoadUserRef.current !== user.id) {
+      lastLoadUserRef.current = user.id;
+      loadEvents();
+    }
+  }, [loadEvents, user]);
+
+  // Auto-sync on page load if last sync > 24h
+  useEffect(() => {
+    if (lastSync) {
+      const diff = Date.now() - new Date(lastSync).getTime();
+      if (diff > 24 * 60 * 60 * 1000) {
+        handleSync();
+      }
+    }
+  }, []);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      // First, sync external calendar integrations
+      if (user?.id) {
+        const integrations = await getCalendarIntegrations(user.id);
+        const enabledIntegrations = integrations.filter((i: any) => i.sync_enabled);
+
+        for (const integration of enabledIntegrations) {
+          try {
+            await syncCalendarEvents(integration.provider, integration.ics_url, user.id);
+          } catch (error) {
+            console.error(`Failed to sync ${integration.provider} calendar:`, error);
+            // Continue with other integrations even if one fails
+          }
+        }
+
+        if (enabledIntegrations.length > 0) {
+          toast({
+            title: 'External calendars synced',
+            description: `Synced ${enabledIntegrations.length} calendar integration(s)`,
+          });
+        }
+      }
+
+      // Then load all events (internal + external)
+      await loadEvents();
+      const now = new Date().toISOString();
+      localStorage.setItem('workos_last_sync', now);
+      setLastSync(now);
+      toast({ title: 'Calendar synced', description: `Last sync: ${format(new Date(), 'h:mm a')}` });
+    } finally {
+      setSyncing(false);
+    }
+  }, [user, toast, loadEvents]);
 
   const navigate = (dir: number) => {
     if (view === 'month') setCurrent(dir > 0 ? addMonths(current, 1) : subMonths(current, 1));
@@ -109,8 +286,8 @@ export default function CalendarPage() {
     setEventForm({
       title: ev.title,
       type: ev.type,
-      date: ev.type === 'meeting' || ev.type === 'event' ? format(ev.date, 'yyyy-MM-dd') : (rd.due_date || rd.date || format(ev.date, 'yyyy-MM-dd')),
-      time: ev.type === 'task' ? (rd.due_time || '') : (ev.type === 'meeting' || ev.type === 'event' ? format(ev.date, 'HH:mm') : ''),
+      date: ev.type === 'meeting' ? format(ev.date, 'yyyy-MM-dd') : (rd.due_date || rd.date || format(ev.date, 'yyyy-MM-dd')),
+      time: ev.type === 'task' ? (rd.due_time || '') : (ev.type === 'meeting' ? format(ev.date, 'HH:mm') : ''),
       project_id: rd.project_id || '',
       description: rd.description || '',
       attendees: rd.attendees || '',
@@ -126,7 +303,6 @@ export default function CalendarPage() {
     if (!user) return;
 
     if (editMode && selectedEvent) {
-      // Update existing
       if (selectedEvent.type === 'task') {
         await supabase.from('tasks').update({
           title: eventForm.title, due_date: eventForm.date, due_time: eventForm.time || null,
@@ -144,18 +320,9 @@ export default function CalendarPage() {
           attendees: eventForm.attendees || null,
           agenda_html: eventForm.agenda || null,
         }).eq('id', selectedEvent.realId);
-      } else if (selectedEvent.type === 'event') {
-        const scheduledAt = eventForm.time ? `${eventForm.date}T${eventForm.time}` : `${eventForm.date}T09:00`;
-        await supabase.from('events').update({
-          title: eventForm.title, scheduled_at: scheduledAt,
-          description: eventForm.description || null,
-          location: eventForm.location || null,
-          project_id: eventForm.project_id || null,
-        }).eq('id', selectedEvent.realId);
       }
       toast({ title: 'Event updated' });
     } else {
-      // Create new
       if (eventForm.type === 'task') {
         await supabase.from('tasks').insert({
           title: eventForm.title, due_date: eventForm.date, due_time: eventForm.time || null,
@@ -174,15 +341,6 @@ export default function CalendarPage() {
           title: eventForm.title, scheduled_at: scheduledAt, project_id: eventForm.project_id, user_id: user.id,
           attendees: eventForm.attendees || null, agenda_html: eventForm.agenda || null,
         });
-      } else if (eventForm.type === 'event') {
-        const scheduledAt = eventForm.time ? `${eventForm.date}T${eventForm.time}` : `${eventForm.date}T09:00`;
-        await supabase.from('events').insert({
-          title: eventForm.title, scheduled_at: scheduledAt,
-          description: eventForm.description || null,
-          location: eventForm.location || null,
-          project_id: eventForm.project_id || null,
-          user_id: user.id,
-        });
       }
       toast({ title: 'Event added to calendar' });
     }
@@ -196,11 +354,154 @@ export default function CalendarPage() {
     if (ev.type === 'task') await supabase.from('tasks').delete().eq('id', ev.realId);
     else if (ev.type === 'milestone') await supabase.from('milestones').delete().eq('id', ev.realId);
     else if (ev.type === 'meeting') await supabase.from('meetings').delete().eq('id', ev.realId);
-    else if (ev.type === 'event') await supabase.from('events').delete().eq('id', ev.realId);
     toast({ title: 'Event deleted' });
     setDeleteConfirm(null);
     setSelectedEvent(null);
     await loadEvents();
+  };
+
+  // Export all events as ICS
+  const handleExportICS = () => {
+    const ics = generateICS(events);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workos-calendar-${format(new Date(), 'yyyy-MM-dd')}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Calendar exported', description: `${events.length} events exported as .ics` });
+  };
+
+  // Import ICS file
+  const handleImportICS = async (file: File) => {
+    if (!user) return;
+    try {
+      const content = await file.text();
+      // Use robust RFC 5545 compliant parser from sync.ts
+      const parsed = robustParseICS(content);
+      if (parsed.length === 0) {
+        toast({ title: 'No events found in file', variant: 'destructive' });
+        return;
+      }
+
+      // Fetch all existing events ONCE upfront (check all event sources)
+      const [tasksRes, meetingsRes, eventsRes] = await Promise.all([
+        supabase
+          .from('tasks')
+          .select('title, due_date, due_time')
+          .eq('user_id', user.id)
+          .not('due_date', 'is', null),
+        supabase
+          .from('meetings')
+          .select('title, scheduled_at')
+          .eq('user_id', user.id),
+        supabase
+          .from('events')
+          .select('title, scheduled_at')
+          .eq('user_id', user.id),
+      ]);
+
+      const existingTitles = new Set<string>();
+      
+      // Add existing tasks
+      tasksRes.data?.forEach(t => {
+        const dateStr = t.due_time 
+          ? `${t.due_date}T${t.due_time}`.slice(0, 16)
+          : t.due_date;
+        existingTitles.add(`${t.title.toLowerCase()}|${dateStr}`);
+      });
+
+      // Add existing meetings
+      meetingsRes.data?.forEach(m => {
+        const dateStr = new Date(m.scheduled_at).toISOString().slice(0, 16);
+        existingTitles.add(`${m.title.toLowerCase()}|${dateStr}`);
+      });
+
+      // Add existing events
+      eventsRes.data?.forEach(e => {
+        const dateStr = new Date(e.scheduled_at).toISOString().slice(0, 16);
+        existingTitles.add(`${e.title.toLowerCase()}|${dateStr}`);
+      });
+
+      let imported = 0;
+      let duplicates = 0;
+      const eventsToInsert: any[] = [];
+
+      // Check all events locally against existing events
+      for (const ev of parsed) {
+        const scheduledAt = ev.dtstart.toISOString();
+        const dateStr = scheduledAt.slice(0, 16); // YYYY-MM-DDTHH:mm
+        const key = `${ev.summary.toLowerCase()}|${dateStr}`;
+
+        if (existingTitles.has(key)) {
+          duplicates++;
+          continue;
+        }
+
+        // Collect events to insert into events table
+        eventsToInsert.push({
+          title: ev.summary,
+          scheduled_at: scheduledAt,
+          project_id: projects[0]?.id || null,
+          user_id: user.id,
+          description: ev.description || null,
+          location: ev.location || null,
+          color: '#3b82f6',
+        });
+        
+        // Add to existing titles to prevent duplicates within THIS import
+        existingTitles.add(key);
+      }
+
+      // Insert all new events in one batch
+      if (eventsToInsert.length > 0) {
+        const { error } = await supabase.from('events').insert(eventsToInsert);
+        if (!error) {
+          imported = eventsToInsert.length;
+        } else {
+          console.error('Error importing events:', error);
+          toast({ 
+            title: 'Import failed', 
+            description: error.message,
+            variant: 'destructive'
+          });
+          return;
+        }
+      }
+      
+      const message = duplicates > 0 
+        ? `Imported ${imported} events (${duplicates} duplicates skipped)`
+        : `Imported ${imported} events`;
+      
+      toast({ title: message });
+      await loadEvents();
+    } catch (error) {
+      console.error('Error importing ICS file:', error);
+      toast({ 
+        title: 'Import failed', 
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Add single event to Google/Outlook
+  const addToGoogle = (ev: CalEvent) => {
+    window.open(generateGoogleCalLink(ev), '_blank');
+  };
+  const addToOutlook = (ev: CalEvent) => {
+    window.open(generateOutlookLink(ev), '_blank');
+  };
+  const downloadSingleICS = (ev: CalEvent) => {
+    const ics = generateICS([ev]);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${ev.title.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const projectName = (pid: string) => projects.find(p => p.id === pid)?.name || '';
@@ -210,13 +511,32 @@ export default function CalendarPage() {
   return (
     <div className="animate-fade-in space-y-4">
       <PageHeader title="Calendar" />
+      <input ref={fileInputRef} type="file" accept=".ics,.ical,.ifb,.icalendar" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImportICS(e.target.files[0]); e.target.value = ''; }} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" onClick={() => openAddDialog()}>
             <Plus className="mr-1 h-3.5 w-3.5" />Add Event
           </Button>
-          <p className="text-sm text-muted-foreground">{events.length} events</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline"><Download className="mr-1 h-3.5 w-3.5" />Import / Export</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />Import .ics file
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleExportICS}>
+                <Download className="mr-2 h-4 w-4" />Export all as .ics
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing}>
+            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync'}
+          </Button>
+          {lastSync && <span className="text-xs text-muted-foreground">Last sync: {format(new Date(lastSync), 'MMM d, h:mm a')}</span>}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border border-border">
@@ -342,6 +662,12 @@ export default function CalendarPage() {
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="capitalize">{selectedEvent.type}</Badge>
                 <span className="text-sm text-muted-foreground">{format(selectedEvent.date, 'EEEE, MMMM d, yyyy')}</span>
+                {(selectedEvent.type === 'meeting' || selectedEvent.rawData?.due_time) && (
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {selectedEvent.type === 'meeting' ? format(selectedEvent.date, 'h:mm a') : selectedEvent.rawData?.due_time}
+                  </span>
+                )}
               </div>
               {selectedEvent.type === 'task' && selectedEvent.rawData && (
                 <div className="space-y-2 text-sm">
@@ -365,18 +691,22 @@ export default function CalendarPage() {
                   {selectedEvent.rawData.attendees && <div className="flex gap-4"><span className="text-muted-foreground">Attendees:</span><span>{selectedEvent.rawData.attendees}</span></div>}
                   {selectedEvent.rawData.agenda_html && <div><span className="text-muted-foreground">Agenda:</span><div className="mt-1 rounded bg-muted/50 p-2 text-xs" dangerouslySetInnerHTML={{ __html: selectedEvent.rawData.agenda_html }} /></div>}
                   {selectedEvent.rawData.notes_html && <div><span className="text-muted-foreground">Notes:</span><div className="mt-1 rounded bg-muted/50 p-2 text-xs" dangerouslySetInnerHTML={{ __html: selectedEvent.rawData.notes_html }} /></div>}
-                  {selectedEvent.rawData.action_items && <div className="flex gap-4"><span className="text-muted-foreground">Action Items:</span><span>{selectedEvent.rawData.action_items}</span></div>}
                   {selectedEvent.rawData.project_id && <div className="flex gap-4"><span className="text-muted-foreground">Project:</span><span>{projectName(selectedEvent.rawData.project_id)}</span></div>}
                 </div>
               )}
-              {selectedEvent.type === 'event' && selectedEvent.rawData && (
-                <div className="space-y-2 text-sm">
-                  <div className="flex gap-4"><span className="text-muted-foreground">Time:</span><span>{format(selectedEvent.date, 'h:mm a')}</span></div>
-                  {selectedEvent.rawData.location && <div className="flex gap-4"><span className="text-muted-foreground">Location:</span><span>{selectedEvent.rawData.location}</span></div>}
-                  {selectedEvent.rawData.description && <div><span className="text-muted-foreground">Description:</span><p className="mt-1 text-xs text-foreground">{selectedEvent.rawData.description}</p></div>}
-                  {selectedEvent.rawData.project_id && <div className="flex gap-4"><span className="text-muted-foreground">Project:</span><span>{projectName(selectedEvent.rawData.project_id)}</span></div>}
-                </div>
-              )}
+              {/* Add to external calendar */}
+              <div className="flex gap-2 flex-wrap border-t border-border pt-3">
+                <span className="text-xs text-muted-foreground self-center">Add to:</span>
+                <Button variant="outline" size="sm" onClick={() => addToGoogle(selectedEvent)}>
+                  <Link2 className="mr-1 h-3 w-3" />Google Calendar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => addToOutlook(selectedEvent)}>
+                  <Link2 className="mr-1 h-3 w-3" />Outlook
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => downloadSingleICS(selectedEvent)}>
+                  <Download className="mr-1 h-3 w-3" />.ics
+                </Button>
+              </div>
               <DialogFooter className="gap-2">
                 <Button variant="outline" size="sm" onClick={() => { openEditDialog(selectedEvent); }}>
                   <Pencil className="mr-1 h-3.5 w-3.5" />Edit
@@ -405,7 +735,6 @@ export default function CalendarPage() {
                     <SelectItem value="task">Task</SelectItem>
                     <SelectItem value="milestone">Milestone</SelectItem>
                     <SelectItem value="meeting">Meeting</SelectItem>
-                    <SelectItem value="event">Event</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -430,12 +759,6 @@ export default function CalendarPage() {
               <>
                 <div className="space-y-2"><Label>Attendees</Label><Input value={eventForm.attendees} onChange={e => setEventForm({ ...eventForm, attendees: e.target.value })} placeholder="e.g. John, Jane" /></div>
                 <div className="space-y-2"><Label>Agenda</Label><Textarea value={eventForm.agenda} onChange={e => setEventForm({ ...eventForm, agenda: e.target.value })} rows={2} /></div>
-              </>
-            )}
-            {eventForm.type === 'event' && (
-              <>
-                <div className="space-y-2"><Label>Location</Label><Input value={eventForm.location} onChange={e => setEventForm({ ...eventForm, location: e.target.value })} placeholder="e.g. Conference Room A" /></div>
-                <div className="space-y-2"><Label>Description</Label><Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} rows={2} /></div>
               </>
             )}
             <Button type="submit" className="w-full">{editMode ? 'Save Changes' : 'Add to Calendar'}</Button>

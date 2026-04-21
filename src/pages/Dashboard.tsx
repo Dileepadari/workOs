@@ -126,31 +126,35 @@ export default function Dashboard() {
   };
 
   const TaskRow = ({ task, showSnooze }: { task: Task; showSnooze?: boolean }) => (
-    <div className="flex items-center gap-2 sm:gap-3 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50">
-      <Checkbox checked={task.status === 'done'} onCheckedChange={() => toggleTask(task.id, task.status)} />
-      <div className="flex-1 min-w-0">
-        <span className={`text-xs sm:text-sm ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</span>
-      </div>
-      {task.project_id && projectMap[task.project_id] && (
-        <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0 hidden sm:flex">
-          <span className="mr-1 h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: projectMap[task.project_id].color }} />
-          {projectMap[task.project_id].name.substring(0, 12)}
-        </Badge>
-      )}
-      <Badge className={`text-[10px] sm:text-xs shrink-0 ${priorityColors[task.priority]}`}>{task.priority}</Badge>
-      {task.time_estimate_min && <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0 hidden sm:inline">{task.time_estimate_min}m</span>}
-      {task.due_time && <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">{task.due_time}</span>}
-      {showSnooze && (
-        <div className="flex gap-1 shrink-0">
-          <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => snoozeTask(task.id, addDays(new Date(), 1))}>Tomorrow</Button>
-          <Popover>
-            <PopoverTrigger asChild><Button variant="ghost" size="sm" className="h-6 px-1.5"><CalendarClock className="h-3 w-3" /></Button></PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <CalendarPicker mode="single" onSelect={(d) => d && snoozeTask(task.id, d)} className={cn("p-3 pointer-events-auto")} />
-            </PopoverContent>
-          </Popover>
+    <div className="space-y-2 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Checkbox checked={task.status === 'done'} onCheckedChange={() => toggleTask(task.id, task.status)} />
+        <div className="flex-1 min-w-0">
+          <span className={`text-xs sm:text-sm ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</span>
         </div>
-      )}
+      </div>
+      <div className="flex flex-wrap gap-1.5 items-center ml-6 sm:ml-7">
+        {task.project_id && projectMap[task.project_id] && (
+          <Badge variant="outline" className="text-[9px] sm:text-xs">
+            <span className="mr-1 h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: projectMap[task.project_id].color }} />
+            {projectMap[task.project_id].name.substring(0, 12)}
+          </Badge>
+        )}
+        <Badge className={`text-[9px] sm:text-xs ${priorityColors[task.priority]}`}>{task.priority}</Badge>
+        {task.time_estimate_min && <span className="text-[9px] sm:text-xs text-muted-foreground">{task.time_estimate_min}m</span>}
+        {task.due_time && <span className="text-[9px] text-muted-foreground">{task.due_time}</span>}
+        {showSnooze && (
+          <div className="flex gap-1 ml-auto">
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-[9px]" onClick={() => snoozeTask(task.id, addDays(new Date(), 1))}>Tomorrow</Button>
+            <Popover>
+              <PopoverTrigger asChild><Button variant="ghost" size="sm" className="h-6 px-1.5"><CalendarClock className="h-3 w-3" /></Button></PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <CalendarPicker mode="single" onSelect={(d) => d && snoozeTask(task.id, d)} className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -315,10 +319,14 @@ export default function Dashboard() {
             {upcomingTasks.length === 0 ? (
               <p className="py-3 text-center text-xs text-muted-foreground">No upcoming tasks</p>
             ) : upcomingTasks.map(t => (
-              <div key={t.id} className="flex items-center gap-2 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50">
-                <span className="text-xs text-muted-foreground w-12 sm:w-14 shrink-0">{format(new Date(t.due_date!), 'MMM d')}</span>
-                <span className="text-xs sm:text-sm text-foreground flex-1 truncate">{t.title}</span>
-                <Badge className={`text-xs ${priorityColors[t.priority]}`}>{t.priority}</Badge>
+              <div key={t.id} className="space-y-1.5 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs sm:text-sm text-foreground flex-1">{t.title}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{format(new Date(t.due_date!), 'MMM d')}</span>
+                </div>
+                <div className="flex gap-1">
+                  <Badge className={`text-[9px] ${priorityColors[t.priority]}`}>{t.priority}</Badge>
+                </div>
               </div>
             ))}
             {milestones.filter(m => isWithinInterval(new Date(m.date), { start: today, end: addDays(today, 7) })).map(m => (

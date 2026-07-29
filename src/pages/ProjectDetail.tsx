@@ -582,7 +582,7 @@ export default function ProjectDetail() {
           {meetings.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No meetings yet</p>}
         </TabsContent>
 
-        {/* Access — per-project guest scoping is being rebuilt (Stage 5); for
+        {/* Access - per-project guest scoping is being rebuilt (Stage 5); for
             now this points to workspace-level Team management. */}
         <TabsContent value="collaborators" className="space-y-4 animate-fade-in">
           <Card>

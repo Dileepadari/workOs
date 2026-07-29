@@ -99,7 +99,7 @@ export function NotificationCenter() {
 
     const fetchAll = () => { fetchReminders(); fetchReal(); };
     fetchAll();
-    const interval = setInterval(fetchAll, 20000); // real notifications poll more often — no live realtime channel in this auth model
+    const interval = setInterval(fetchAll, 20000); // real notifications poll more often - no live realtime channel in this auth model
     return () => clearInterval(interval);
   }, [user, currentWorkspace]);
 

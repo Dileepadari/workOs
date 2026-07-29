@@ -6,7 +6,7 @@
 -- being owned directly by a single `auth.users` row to being scoped to a
 -- `workspace_id`, with real membership/roles instead of the old bolted-on
 -- guest-password system (project_collaborators/collaborator_sessions, left
--- untouched here — still retired in Stage 5, not this migration).
+-- untouched here - still retired in Stage 5, not this migration).
 --
 -- RLS stays enabled on every table as defense-in-depth, but is intentionally
 -- left with zero permissive policies below: the actual authorization now
@@ -15,7 +15,7 @@
 -- the browser only ever holds the anon key.
 
 -- ============================================================================
--- 1. public.users — fully replaces auth.users as the identity table.
+-- 1. public.users - fully replaces auth.users as the identity table.
 -- ============================================================================
 
 create table public.users (
@@ -109,7 +109,7 @@ create index idx_project_members_user on public.project_members(user_id);
 -- ============================================================================
 -- 3. Workspace-scope every content table: add workspace_id, repoint
 --    ownership from auth.users to public.users (user_id -> created_by).
---    workspace_id/created_by are left nullable here on purpose — the
+--    workspace_id/created_by are left nullable here on purpose - the
 --    bootstrap function in section 5 fills them in, and a follow-up
 --    migration (stage1 part 2) adds the NOT NULL + FK once that's done.
 -- ============================================================================
@@ -131,7 +131,7 @@ begin
   end loop;
 end $$;
 
--- Drop every old auth.uid()-keyed policy on these tables — they're dead now
+-- Drop every old auth.uid()-keyed policy on these tables - they're dead now
 -- that the browser never holds a Supabase-issued session, and are replaced
 -- by the Edge Function's own membership checks (RLS on these tables now
 -- intentionally has zero policies, i.e. deny-all, as defense-in-depth).
@@ -167,13 +167,13 @@ alter table public.tasks add column assignee_id uuid references public.users(id)
 -- 5. One-time bootstrap function: creates the initial owner's Personal
 --    Workspace and migrates all existing rows into it. Only two legacy
 --    auth.users accounts ever owned real data (verified against the live
---    project before writing this migration) — the primary owner (all 8
+--    project before writing this migration) - the primary owner (all 8
 --    projects, 42/43 tasks, everything else) and one unrelated stray task
 --    under a different email with no project association. Per the user's
 --    explicit decision, only the primary owner gets a real account in the
 --    new system; the stray task is folded into their Personal Workspace
 --    rather than lost. The other 4 legacy accounts owned zero rows and are
---    not carried forward — they can sign up fresh if they return.
+--    not carried forward - they can sign up fresh if they return.
 --
 --    The one real external collaborator on record (an "editor" invite on the
 --    IMS Redesign project, captured from project_collaborators before that

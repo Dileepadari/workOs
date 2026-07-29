@@ -17,7 +17,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 // Tint kept low-opacity (/10, not /20) so text-on-tint clears WCAG AA
-// contrast in dark mode — at /20 the tinted background sits too close in
+// contrast in dark mode - at /20 the tinted background sits too close in
 // luminance to the same-hue text color to read reliably on a dark page.
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
   todo: 'bg-muted text-muted-foreground',
@@ -30,7 +30,7 @@ export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
 export const TASK_PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  // Slow, gentle breathing pulse — urgent items should feel alive without
+  // Slow, gentle breathing pulse - urgent items should feel alive without
   // being an alarming fast blink.
   urgent: 'bg-destructive/10 text-destructive animate-pulse [animation-duration:2.5s]',
   high: 'bg-warning/10 text-warning',

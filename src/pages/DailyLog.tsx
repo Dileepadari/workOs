@@ -169,7 +169,7 @@ export default function DailyLogPage() {
           <Button variant="outline" size="sm" onClick={() => setCurrentDate(format(new Date(), 'yyyy-MM-dd'))}>Today</Button>
         </div>
 
-        {/* Week strip — quick nav across the current week with entry indicators */}
+        {/* Week strip - quick nav across the current week with entry indicators */}
         <div className="flex items-center gap-1.5">
           {Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(new Date(currentDate)), i)).map(day => {
             const dayStr = format(day, 'yyyy-MM-dd');

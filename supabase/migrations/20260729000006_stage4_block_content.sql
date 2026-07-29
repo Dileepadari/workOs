@@ -4,7 +4,7 @@
 -- (`content_text`, feeds full-text search / QuickSearch) instead.
 --
 -- Non-destructive: every existing value is wrapped into a single paragraph
--- block during backfill, so nothing is lost — old content just becomes the
+-- block during backfill, so nothing is lost - old content just becomes the
 -- first block of a document that can now be extended with formatting,
 -- checklists, images, etc. Old columns are left in place (not dropped) since
 -- Stage 5 hasn't retired the pages that still reference them.

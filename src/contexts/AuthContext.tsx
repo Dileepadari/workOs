@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { auth as authApi } from '@/lib/api';
 import { getToken, setToken, clearToken, decodeToken } from '@/lib/authToken';
 
-// Custom username/password + JWT auth (see supabase/functions/workos) — no
+// Custom username/password + JWT auth (see supabase/functions/workos) - no
 // Supabase Auth/GoTrue anywhere, since this app is headed for a self-hosted
 // Supabase instance with no Auth service. `email` stays optional on the user
 // object since not every account has one set.

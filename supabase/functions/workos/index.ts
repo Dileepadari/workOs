@@ -2,13 +2,13 @@
 // and the image/file upload proxy in the app.
 //
 // Auth is a self-issued username/password + JWT scheme (public.users table,
-// bcrypt hashes), not supabase.auth — this app is headed for a self-hosted
+// bcrypt hashes), not supabase.auth - this app is headed for a self-hosted
 // Supabase instance with no Auth service, so there must be no dependency on
 // GoTrue anywhere. Same shape as the sibling `portfolio` project's
 // `admin` Edge Function, extended from single-admin to real multi-user
 // workspaces/teams.
 //
-// Authorization lives here, in code — not in Postgres RLS. RLS stays enabled
+// Authorization lives here, in code - not in Postgres RLS. RLS stays enabled
 // on every table as defense-in-depth (deny-all: nothing is reachable with
 // just the anon key), but the actual membership/role checks happen in this
 // function before any query runs, using the service-role key.
@@ -23,15 +23,15 @@ const JWT_SECRET = Deno.env.get("WORKOS_JWT_SECRET")!;
 // File uploads proxy to the real function living on the user's self-hosted
 // Supabase box (/mnt/storage/supabase/functions/index.ts on
 // mystorage.dileepadari.dev), reached through Kong at
-// {host}/functions/v1/upload — NOT the simpler standalone-service contract
+// {host}/functions/v1/upload - NOT the simpler standalone-service contract
 // the sibling `portfolio` project's DEVDOC describes (that service no longer
 // exists; this box moved on to a real self-hosted Supabase stack). Auth is a
 // short-lived admin JWT signed with *that instance's* JWT_SECRET (shared
-// with its PostgREST), containing `is_admin: true` — minted here, per
+// with its PostgREST), containing `is_admin: true` - minted here, per
 // request, and never exposed to the browser. `x-app-name` must be in that
 // function's own ALLOWED_CATEGORIES allowlist ("workos" was added there to
 // support this app). The function only ever writes under an `images/`
-// folder regardless of file type, and requires flat filenames (no `/`) —
+// folder regardless of file type, and requires flat filenames (no `/`) -
 // see handleUpload below.
 const ORACLE_UPLOAD_BASE_URL = Deno.env.get("ORACLE_UPLOAD_BASE_URL") ?? "https://supabase.dileepadari.dev";
 const ORACLE_APP_NAME = Deno.env.get("ORACLE_APP_NAME") ?? "workos";
@@ -46,7 +46,7 @@ const JWT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 // `project_id` column (or, for `projects` itself, the row's own `id`) that
 // guest access is checked against via project_members. `personalOnly` tables
 // are workspace-scoped but additionally restricted to their own creator
-// regardless of workspace role (daily journal, personal calendar feeds) —
+// regardless of workspace role (daily journal, personal calendar feeds) -
 // guests never get access to these.
 type TableConfig = { projectScoped: boolean; selfIsProject?: boolean; personalOnly?: boolean; noCreatedBy?: boolean; orderColumn?: string };
 const CONTENT_TABLES: Record<string, TableConfig> = {
@@ -63,10 +63,10 @@ const CONTENT_TABLES: Record<string, TableConfig> = {
   synced_events: { projectScoped: false, personalOnly: true },
   // Shared workspace-wide, not per-user-private, for v1.
   saved_views: { projectScoped: false },
-  // Has `uploaded_by`, not `created_by` — client passes it explicitly.
+  // Has `uploaded_by`, not `created_by` - client passes it explicitly.
   attachments: { projectScoped: false, noCreatedBy: true },
   // Keyed by workspace_id itself (no separate `id` or `created_at` column,
-  // no `created_by`) — callers must pass idColumn:'workspace_id' on update.
+  // no `created_by`) - callers must pass idColumn:'workspace_id' on update.
   workspace_settings: { projectScoped: false, noCreatedBy: true, orderColumn: 'workspace_id' },
 };
 
@@ -400,7 +400,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
 
   // Resolve the project_id this operation touches, for guest scoping. For
   // select, a guest must tell us which project they're asking about via
-  // filters — a select with no project filter has no single project_id to
+  // filters - a select with no project filter has no single project_id to
   // check against, so it's rejected below rather than silently scanning
   // every project's rows looking for ones a guest happens to have access to.
   let projectId: string | null = null;
@@ -437,7 +437,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
   }
 
   // payload may be a single object or an array (bulk insert/upsert, e.g. ICS
-  // calendar sync batches) — stamp workspace_id/created_by onto every row.
+  // calendar sync batches) - stamp workspace_id/created_by onto every row.
   const stamp = (row: Record<string, unknown>) => ({
     ...row,
     workspace_id,
@@ -463,7 +463,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
   if (operation === "update") {
     if (!id) return json({ error: "Missing id" }, 400);
 
-    // Task (re)assignment notifies the new assignee — checked before the
+    // Task (re)assignment notifies the new assignee - checked before the
     // write so we know whether assignee_id actually changed.
     let priorAssigneeId: string | null = null;
     const isReassignment = table === "tasks" && typeof payload === "object" && payload !== null && "assignee_id" in payload;
@@ -533,7 +533,7 @@ async function notifyMentionsAndParticipants(opts: {
   const { workspaceId, commentId, contentText, actorId, actorUsername, entityType, entityId, projectId } = opts;
   const link = entityLink(entityType, entityId, projectId);
 
-  // @mentions — only for usernames that are actually members of this workspace.
+  // @mentions - only for usernames that are actually members of this workspace.
   const mentionedUsernames = [...new Set([...contentText.matchAll(/@([a-zA-Z0-9_]+)/g)].map((m) => m[1]))];
   const notifiedUserIds = new Set<string>();
 
@@ -735,7 +735,7 @@ async function handleListActivity(req: Request, user: AuthedUser): Promise<Respo
 // --- Upload (Oracle storage proxy) ---------------------------------------
 
 // Matches /mnt/storage/supabase/functions/index.ts's own validation exactly
-// — flat filenames only (no path segments), since that function does
+// - flat filenames only (no path segments), since that function does
 // `Deno.writeFile(\`${targetDir}/${fileName}\`, ...)\` with no sanitization
 // of its own beyond this regex.
 const SAFE_FILENAME = /^[a-zA-Z0-9._-]+$/;
@@ -746,12 +746,12 @@ async function handleUpload(req: Request): Promise<Response> {
     return json({ error: "Missing or invalid x-file-name header (letters, digits, '.', '_', '-' only, no slashes)" }, 400);
   }
   if (!SELFHOST_JWT_SECRET) {
-    return json({ error: "Server is missing SELFHOST_JWT_SECRET — uploads are not configured" }, 500);
+    return json({ error: "Server is missing SELFHOST_JWT_SECRET - uploads are not configured" }, 500);
   }
 
   const fileBuffer = await req.arrayBuffer();
 
-  // Short-lived admin token for this one upload call — the self-hosted
+  // Short-lived admin token for this one upload call - the self-hosted
   // function's own auth scheme (its login() Postgres function normally
   // issues these), not our WORKOS_JWT_SECRET-signed user tokens.
   const now = Math.floor(Date.now() / 1000);

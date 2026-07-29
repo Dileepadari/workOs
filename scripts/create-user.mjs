@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Provisions (or updates) a public.users row directly via the service-role
-// key, then — only on first creation — calls the one-time
+// key, then - only on first creation - calls the one-time
 // bootstrap_initial_workspace() migration function to create that user's
 // Personal Workspace and fold all pre-existing (pre-multi-tenant) data into
 // it. Deliberately a standalone script, not app code or a committed
-// migration — a password hash should never end up in a UI form visible to
+// migration - a password hash should never end up in a UI form visible to
 // the browser bundle, or in git history. Mirrors the sibling `portfolio`
 // project's scripts/create-admin.mjs.
 //
-// Username/password are read from env vars, never CLI args — argv gets
+// Username/password are read from env vars, never CLI args - argv gets
 // echoed back by npm/shells/process listings, env vars set via a file don't.
 //
 // Usage:
@@ -68,7 +68,7 @@ if (error) {
 console.log(`User "${user.username}" (${user.id}) is ready.`);
 
 if (isFirstCreation) {
-  console.log('First creation — bootstrapping Personal Workspace and migrating existing data...');
+  console.log('First creation - bootstrapping Personal Workspace and migrating existing data...');
   const { data: workspaceId, error: rpcError } = await supabase.rpc('bootstrap_initial_workspace', {
     p_owner_user_id: user.id,
   });
@@ -80,5 +80,5 @@ if (isFirstCreation) {
 
   console.log(`Personal Workspace created: ${workspaceId}`);
 } else {
-  console.log('User already existed — skipped workspace bootstrap (only runs once, on first creation).');
+  console.log('User already existed - skipped workspace bootstrap (only runs once, on first creation).');
 }

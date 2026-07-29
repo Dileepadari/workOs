@@ -295,7 +295,7 @@
    ===========================
    BlockNote's own default spacing/type-scale renders text flush against
    its container with no inset and at a larger base font than our shadcn
-   Input (px-3/text-sm) — right next to a regular Input in the same form,
+   Input (px-3/text-sm) - right next to a regular Input in the same form,
    it reads as a mismatched "input inside an input". Padding here (0.5rem
    top/bottom) is chosen to exactly match Input's py-2, and the paragraph
    line-height below matches Tailwind's text-sm (1.25rem) rather than
@@ -311,7 +311,7 @@
 }
 /* The empty-placeholder ::after pseudo-element is `display: inline`, but
    since it's a rendered sibling after a block-level <p>, it wraps onto its
-   own line — doubling the row's height (20px empty line + 20px placeholder
+   own line - doubling the row's height (20px empty line + 20px placeholder
    line). Taking it out of flow and overlaying it back onto the first line
    fixes that without touching BlockNote's own placeholder text/logic. */
 .bn-container.bn-shadcn .bn-editor .bn-block-content {
@@ -325,7 +325,7 @@
 /* ===========================
    LOGO MONOCHROME
    ===========================
-   logo-mark.png is a solid brand-violet mark on transparent background —
+   logo-mark.png is a solid brand-violet mark on transparent background -
    invisible against the dark sidebar/card backgrounds it sits on in dark
    mode. brightness(0) flattens any opaque pixel to black while preserving
    the alpha shape; invert(1) flips that to white for dark mode. */

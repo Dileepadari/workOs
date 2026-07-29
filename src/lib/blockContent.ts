@@ -2,7 +2,7 @@
 // Kept dependency-light: rather than pulling in BlockNote's HTML/markdown
 // importers just to migrate a handful of "<p>text</p>"-wrapped legacy
 // strings, we hand-roll the trivial single-paragraph-block shape those
-// need — it's the same shape the Stage 4 migration backfilled server-side.
+// need - it's the same shape the Stage 4 migration backfilled server-side.
 
 export interface PlainTextBlock {
   type: 'paragraph';
@@ -12,7 +12,7 @@ export interface PlainTextBlock {
 const EMPTY_DOCUMENT: PlainTextBlock[] = [{ type: 'paragraph', content: [] }];
 
 /** Wraps a legacy plain-text/HTML string into a single-paragraph BlockNote
- *  document — same convention the Stage 4 migration used server-side. */
+ *  document - same convention the Stage 4 migration used server-side. */
 export function legacyTextToBlocks(text: string | null | undefined): PlainTextBlock[] {
   const stripped = (text ?? '').replace(/<[^>]*>/g, '');
   if (!stripped.trim()) return EMPTY_DOCUMENT;

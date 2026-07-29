@@ -2,7 +2,7 @@ import twemoji from 'twemoji';
 
 // Renders a unicode emoji as a real icon (Twemoji SVG), instead of relying
 // on whatever emoji font (or lack thereof) happens to be installed on the
-// viewer's OS — consistent look everywhere, not a raw pasted glyph.
+// viewer's OS - consistent look everywhere, not a raw pasted glyph.
 const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/';
 
 interface Props {

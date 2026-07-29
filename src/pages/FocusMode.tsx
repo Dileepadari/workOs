@@ -228,7 +228,7 @@ export default function FocusMode() {
                 <p className="text-sm font-semibold text-foreground">Up Next</p>
               </div>
               {tasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No open tasks — enjoy the quiet.</p>
+                <p className="text-xs text-muted-foreground">No open tasks - enjoy the quiet.</p>
               ) : (
                 <div className="space-y-1.5">
                   {tasks.slice(0, 6).map(t => (

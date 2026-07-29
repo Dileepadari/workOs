@@ -1,4 +1,4 @@
--- Stage 3: saved views for the unified task/project view model — named,
+-- Stage 3: saved views for the unified task/project view model - named,
 -- reusable filter+sort+view-type combos. Shared workspace-wide (not
 -- per-user-private for v1): anyone on the team can see and use a saved view,
 -- simplifying the access model versus tracking per-view visibility.

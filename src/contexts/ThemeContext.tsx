@@ -2,11 +2,11 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { workspaces as workspacesApi } from '@/lib/api';
 import { useWorkspace } from './WorkspaceContext';
 
-// Single source of truth for all theming — merges what used to be two
+// Single source of truth for all theming - merges what used to be two
 // separate, unsynchronized providers (ThemeContext + ColorThemeContext).
 // Light/dark mode + font are personal (localStorage). Color palette / custom
 // brand color are a workspace-wide identity, persisted server-side via
-// workspace_settings so every member of the team sees the same branding —
+// workspace_settings so every member of the team sees the same branding -
 // not per-browser localStorage.
 
 type Mode = 'light' | 'dark';
@@ -47,7 +47,7 @@ function withLightness(hsl: string, lightness: number, saturationScale = 1): str
 }
 
 export const colorPalettes: Record<Exclude<ColorPalette, 'custom'>, Record<string, string>> = {
-  // The default preset — matches the ADK Dev brand mark (deep violet + gold)
+  // The default preset - matches the ADK Dev brand mark (deep violet + gold)
   // rather than a generic shadcn blue, per the actual logo colors.
   common: {
     primary: hexToHSL('#47266b'), primaryLight: hexToHSL('#ede9f5'),
@@ -268,7 +268,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--muted-foreground', p('textMuted', 'darkTextMuted'));
     root.style.setProperty('--border', p('border', 'darkBorder'));
     // Was wrongly bound to the card/surface color, which is near-white in
-    // light mode — every plain Input/Select (they use border-input) ended up
+    // light mode - every plain Input/Select (they use border-input) ended up
     // with an almost invisible outline. Should track --border's strength.
     root.style.setProperty('--input', p('border', 'darkBorder'));
     root.style.setProperty('--ring', p('primary', 'darkPrimary'));
@@ -291,7 +291,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--sidebar-ring', p('primary', 'darkPrimary'));
   };
 
-  // One effect owns both the dark-class toggle and the palette repaint —
+  // One effect owns both the dark-class toggle and the palette repaint -
   // eliminates the old MutationObserver hack that existed only because two
   // separate providers couldn't otherwise react to each other's changes.
   useEffect(() => {

@@ -72,3 +72,4 @@ npm run dev
 ```
 
 Requires a `.env` with `VITE_SUPABASE_URL` pointed at your Supabase project. See [DEVDOC.md](./DEVDOC.md) for the full environment variable list, backend setup, and deployment notes.
+

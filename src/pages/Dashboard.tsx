@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FolderKanban, CheckSquare, FileText, Link2, Plus, Clock, AlertTriangle, Calendar, CalendarClock, Flag, Video, TrendingUp } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { FolderKanban, CheckSquare, FileText, Link2, Plus, Clock, AlertTriangle, Calendar, CalendarClock, Flag, Video, TrendingUp, CheckCircle2, PartyPopper } from 'lucide-react';
+import { api } from '@/lib/api';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { format, isToday, isBefore, startOfToday, addDays, isWithinInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
+import { PRIORITY_COLORS, PROJECT_STATUS_COLORS } from '@/lib/taskMeta';
 
 function DateTime() {
   const [time, setTime] = useState(new Date());
@@ -21,12 +22,14 @@ function DateTime() {
   const date = time.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const timeStr = time.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
   return (
-    <Card className="bg-gradient-to-r from-primary/10 to-accent/10">
-      <CardContent className="p-4 sm:p-6">
+    <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-accent/10 blur-2xl" />
+      <CardContent className="relative p-4 sm:p-6">
         <div className="text-center sm:text-left">
-          <p className="text-sm font-medium text-primary">{day}</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-primary">{day}</p>
           <p className="text-2xl sm:text-3xl font-bold text-foreground">{date}</p>
-          <p className="text-lg sm:text-xl text-muted-foreground font-mono">{timeStr}</p>
+          <p className="text-lg sm:text-xl text-muted-foreground font-mono tabular-nums">{timeStr}</p>
         </div>
       </CardContent>
     </Card>
@@ -34,21 +37,16 @@ function DateTime() {
 }
 
 interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; due_time: string | null; time_estimate_min: number | null; project_id: string | null; }
-interface Project { id: string; name: string; status: string; color: string; slug: string | null; }
+interface Project { id: string; name: string; status: string; color: string; slug: string | null; updated_at: string; }
 interface Milestone { id: string; title: string; date: string; project_id: string; is_completed: boolean; }
 interface Meeting { id: string; title: string; scheduled_at: string; project_id: string; }
 interface CalendarEvent { id: string; title: string; scheduled_at: string; project_id: string; location?: string; }
 
-const priorityColors: Record<string, string> = {
-  urgent: 'bg-destructive/20 text-destructive', high: 'bg-warning/20 text-warning',
-  medium: 'bg-primary/20 text-primary', low: 'bg-muted text-muted-foreground',
-};
-const projectStatusColors: Record<string, string> = {
-  active: 'bg-success/20 text-success', on_hold: 'bg-warning/20 text-warning', archived: 'bg-muted text-muted-foreground',
-};
+const priorityColors = PRIORITY_COLORS;
+const projectStatusColors = PROJECT_STATUS_COLORS;
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -59,26 +57,46 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ projects: 0, links: 0, notes: 0, meetings: 0 });
 
   const fetchData = async () => {
-    if (!user) return;
+    if (!currentWorkspace) return;
+    const wsId = currentWorkspace.id;
     const [tasksRes, projRes, msRes, linksRes, notesRes, meetingsRes, eventsRes] = await Promise.all([
-      supabase.from('tasks').select('id, title, status, priority, due_date, due_time, time_estimate_min, project_id').order('due_date', { ascending: true }),
-      supabase.from('projects').select('id, name, status, color, slug').order('updated_at', { ascending: false }),
-      supabase.from('milestones').select('*').eq('is_completed', false).order('date', { ascending: true }),
-      supabase.from('links').select('id', { count: 'exact', head: true }),
-      supabase.from('notes').select('id', { count: 'exact', head: true }),
-      supabase.from('meetings').select('id, title, scheduled_at, project_id').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(10),
-      supabase.from('events').select('id, title, scheduled_at, project_id, location').gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(10),
+      api.select<Task>('tasks', wsId),
+      api.select<Project>('projects', wsId),
+      api.select<Milestone>('milestones', wsId, { is_completed: false }),
+      api.select<{ id: string }>('links', wsId),
+      api.select<{ id: string }>('notes', wsId),
+      api.select<Meeting>('meetings', wsId),
+      api.select<CalendarEvent>('events', wsId),
     ]);
-    setTasks(tasksRes.data ?? []);
-    setProjects(projRes.data ?? []);
-    setMilestones(msRes.data ?? []);
-    setMeetings(meetingsRes.data ?? []);
-    setCalendarEvents(eventsRes.data ?? []);
-    setStats({ projects: projRes.data?.length ?? 0, links: linksRes.count ?? 0, notes: notesRes.count ?? 0, meetings: (meetingsRes.data?.length ?? 0) + (eventsRes.data?.length ?? 0) });
+
+    const tasksSorted = [...tasksRes].sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return +new Date(a.due_date) - +new Date(b.due_date);
+    });
+    const projSorted = [...projRes].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+    const msSorted = [...msRes].sort((a, b) => +new Date(a.date) - +new Date(b.date));
+    const now = new Date();
+    const meetingsSorted = [...meetingsRes]
+      .filter(m => new Date(m.scheduled_at) >= now)
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
+      .slice(0, 10);
+    const eventsSorted = [...eventsRes]
+      .filter(e => new Date(e.scheduled_at) >= now)
+      .sort((a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at))
+      .slice(0, 10);
+
+    setTasks(tasksSorted);
+    setProjects(projSorted);
+    setMilestones(msSorted);
+    setMeetings(meetingsSorted);
+    setCalendarEvents(eventsSorted);
+    setStats({ projects: projSorted.length, links: linksRes.length, notes: notesRes.length, meetings: meetingsSorted.length + eventsSorted.length });
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [user]);
+  useEffect(() => { fetchData(); }, [currentWorkspace?.id]);
 
   const today = startOfToday();
   const activeTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'dropped');
@@ -107,26 +125,31 @@ export default function Dashboard() {
 
   const handleQuickTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickTask.trim()) return;
-    await supabase.from('tasks').insert({ title: quickTask.trim(), user_id: user!.id, status: 'todo', priority: 'medium' });
+    const title = quickTask.trim();
+    if (!title || !currentWorkspace) return;
+    // Clear immediately (not after the await) so fast repeated submits can't
+    // land on top of a still-populated field and get concatenated together.
     setQuickTask('');
+    await api.insert('tasks', currentWorkspace.id, { title, status: 'todo', priority: 'medium' });
     fetchData();
   };
 
   const toggleTask = async (taskId: string, currentStatus: string) => {
+    if (!currentWorkspace) return;
     const newStatus = currentStatus === 'done' ? 'todo' : 'done';
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    await api.update('tasks', currentWorkspace.id, taskId, { status: newStatus });
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
   };
 
   const snoozeTask = async (taskId: string, newDate: Date) => {
+    if (!currentWorkspace) return;
     const dateStr = format(newDate, 'yyyy-MM-dd');
-    await supabase.from('tasks').update({ due_date: dateStr }).eq('id', taskId);
+    await api.update('tasks', currentWorkspace.id, taskId, { due_date: dateStr });
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: dateStr } : t));
   };
 
-  const TaskRow = ({ task, showSnooze }: { task: Task; showSnooze?: boolean }) => (
-    <div className="space-y-2 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50">
+  const TaskRow = ({ task, showSnooze, index = 0 }: { task: Task; showSnooze?: boolean; index?: number }) => (
+    <div className="animate-fade-in space-y-2 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
       <div className="flex items-center gap-2 sm:gap-3">
         <Checkbox checked={task.status === 'done'} onCheckedChange={() => toggleTask(task.id, task.status)} />
         <div className="flex-1 min-w-0">
@@ -193,24 +216,60 @@ export default function Dashboard() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
         {[
-          { label: 'Projects', value: stats.projects, icon: FolderKanban, to: '/projects' },
-          { label: 'Open Tasks', value: activeTasks.length, icon: CheckSquare, to: '/tasks' },
-          { label: 'Links', value: stats.links, icon: Link2, to: '/resources' },
-          { label: 'Notes', value: stats.notes, icon: FileText, to: '/notes' },
-          { label: 'Events', value: upcomingEvents.length, icon: Calendar, to: '/calendar' },
-        ].map(({ label, value, icon: Icon, to }) => (
-          <Link key={label} to={to}>
-            <Card className="transition-colors hover:bg-muted/50">
-              <CardContent className="flex items-center gap-2 sm:gap-3 p-4 sm:p-6">
-                <Icon className="h-5 w-5 text-primary shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-lg sm:text-xl font-semibold text-foreground">{value}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{label}</p>
+          { label: 'Projects', value: stats.projects, icon: FolderKanban, to: '/projects', color: 'text-primary', bg: 'bg-primary/10' },
+          { label: 'Open Tasks', value: activeTasks.length, icon: CheckSquare, to: '/tasks', color: 'text-blue-500', bg: 'bg-blue-500/10' },
+          { label: 'Links', value: stats.links, icon: Link2, to: '/resources', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+          { label: 'Notes', value: stats.notes, icon: FileText, to: '/notes', color: 'text-accent', bg: 'bg-accent/10' },
+          { label: 'Events', value: upcomingEvents.length, icon: Calendar, to: '/calendar', color: 'text-success', bg: 'bg-success/10' },
+        ].map(({ label, value, icon: Icon, to, color, bg }, index) => (
+          <Link key={label} to={to} className="animate-scale-in" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
+            <Card className="group relative overflow-hidden transition-all hover-lift">
+              <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${bg} opacity-50 transition-transform duration-300 group-hover:scale-125`} />
+              <CardContent className="relative flex flex-col gap-3 p-4 sm:p-5">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${bg}`}>
+                  <Icon className={`h-4.5 w-4.5 ${color}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground">{label}</p>
                 </div>
               </CardContent>
             </Card>
           </Link>
         ))}
+      </div>
+
+      {/* Project Status Grid */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Projects</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {projects.map((p, index) => {
+            const projTasks = tasks.filter(t => t.project_id === p.id);
+            const done = projTasks.filter(t => t.status === 'done').length;
+            const total = projTasks.length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            return (
+              <Link key={p.id} to={`/projects/${p.slug || p.id}`} className="animate-scale-in" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
+                <Card className="h-full overflow-hidden transition-colors hover:bg-muted/50 hover-lift">
+                  <div className="h-1 w-full" style={{ backgroundColor: p.color }} />
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
+                      <Badge className={`shrink-0 text-[10px] capitalize ${projectStatusColors[p.status] || 'bg-muted text-muted-foreground'}`}>{p.status.replace('_', ' ')}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-1.5 flex-1 rounded-full bg-muted"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: p.color }} /></div>
+                      <span className="text-xs font-medium text-muted-foreground tabular-nums">{pct}%</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      <span>{done}/{total} tasks</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Time + Upcoming Events Row */}
@@ -223,12 +282,12 @@ export default function Dashboard() {
               <span className="ml-auto text-xs text-muted-foreground">{Math.round(totalEstimateWeek / 60)}h · {doneTodayTasks.length} done · {activeTasks.length} open</span>
             </div>
             <div className="space-y-2">
-              {projects.slice(0, 5).map(p => {
+              {projects.slice(0, 5).map((p, index) => {
                 const projTasks = activeTasks.filter(t => t.project_id === p.id);
                 const est = projTasks.reduce((s, t) => s + (t.time_estimate_min ?? 0), 0);
                 if (est === 0) return null;
                 return (
-                  <div key={p.id} className="flex items-center gap-2">
+                  <div key={p.id} className="animate-fade-in flex items-center gap-2" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
                     <span className="text-xs text-muted-foreground w-24 sm:w-32 truncate">{p.name}</span>
                     <div className="flex-1 h-2 rounded-full bg-muted"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min((est / totalEstimateWeek) * 100, 100)}%`, backgroundColor: p.color }} /></div>
                     <span className="text-xs text-muted-foreground w-10 text-right">{Math.round(est / 60)}h</span>
@@ -251,8 +310,8 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground py-2">No upcoming events</p>
             ) : (
               <div className="space-y-2">
-                {upcomingEvents.map(ev => (
-                  <div key={`${ev.type}-${ev.id}`} className="flex items-center gap-2 text-xs">
+                {upcomingEvents.map((ev, index) => (
+                  <div key={`${ev.type}-${ev.id}`} className="animate-fade-in flex items-center gap-2 text-xs" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
                     {eventTypeIcon(ev.type)}
                     <span className="text-muted-foreground w-14 shrink-0">{isToday(ev.date) ? 'Today' : format(ev.date, 'MMM d')}</span>
                     <span className="text-foreground flex-1 truncate">{ev.title}</span>
@@ -275,7 +334,7 @@ export default function Dashboard() {
                 <Badge variant="destructive" className="text-xs">{overdueTasks.length}</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1 p-4 sm:p-6">{overdueTasks.map(t => <TaskRow key={t.id} task={t} showSnooze />)}</CardContent>
+            <CardContent className="space-y-1 p-4 sm:p-6">{overdueTasks.map((t, i) => <TaskRow key={t.id} task={t} showSnooze index={i} />)}</CardContent>
           </Card>
         )}
         {blockedTasks.length > 0 && (
@@ -283,10 +342,10 @@ export default function Dashboard() {
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-sm text-warning">
                 <AlertTriangle className="h-4 w-4" />Blocked
-                <Badge className="text-xs bg-warning/20 text-warning">{blockedTasks.length}</Badge>
+                <Badge className="text-xs bg-warning/10 text-warning">{blockedTasks.length}</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1 p-4 sm:p-6">{blockedTasks.map(t => <TaskRow key={t.id} task={t} />)}</CardContent>
+            <CardContent className="space-y-1 p-4 sm:p-6">{blockedTasks.map((t, i) => <TaskRow key={t.id} task={t} index={i} />)}</CardContent>
           </Card>
         )}
         <Card>
@@ -298,12 +357,12 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-1 p-4 sm:p-6">
             {todayTasks.length === 0 ? (
-              <p className="py-3 text-center text-xs text-muted-foreground">No tasks due today 🎉</p>
-            ) : todayTasks.map(t => <TaskRow key={t.id} task={t} />)}
+              <p className="flex items-center justify-center gap-1.5 py-3 text-center text-xs text-muted-foreground"><PartyPopper className="h-3.5 w-3.5" />No tasks due today</p>
+            ) : todayTasks.map((t, i) => <TaskRow key={t.id} task={t} index={i} />)}
             {doneTodayTasks.length > 0 && (
               <details className="pt-2">
-                <summary className="cursor-pointer text-xs text-muted-foreground">✓ {doneTodayTasks.length} completed</summary>
-                <div className="mt-2 space-y-1">{doneTodayTasks.slice(0, 5).map(t => <TaskRow key={t.id} task={t} />)}</div>
+                <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />{doneTodayTasks.length} completed</summary>
+                <div className="mt-2 space-y-1">{doneTodayTasks.slice(0, 5).map((t, i) => <TaskRow key={t.id} task={t} index={i} />)}</div>
               </details>
             )}
           </CardContent>
@@ -318,8 +377,8 @@ export default function Dashboard() {
           <CardContent className="space-y-1 p-4 sm:p-6">
             {upcomingTasks.length === 0 ? (
               <p className="py-3 text-center text-xs text-muted-foreground">No upcoming tasks</p>
-            ) : upcomingTasks.map(t => (
-              <div key={t.id} className="space-y-1.5 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50">
+            ) : upcomingTasks.map((t, i) => (
+              <div key={t.id} className="animate-fade-in space-y-1.5 rounded-md px-2 sm:px-3 py-2 transition-colors hover:bg-muted/50" style={{ animationDelay: `${Math.min(i * 40, 480)}ms` }}>
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-xs sm:text-sm text-foreground flex-1">{t.title}</span>
                   <span className="text-xs text-muted-foreground shrink-0">{format(new Date(t.due_date!), 'MMM d')}</span>
@@ -329,47 +388,14 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-            {milestones.filter(m => isWithinInterval(new Date(m.date), { start: today, end: addDays(today, 7) })).map(m => (
-              <div key={m.id} className="flex items-center gap-2 rounded-md px-2 sm:px-3 py-2 bg-primary/5">
+            {milestones.filter(m => isWithinInterval(new Date(m.date), { start: today, end: addDays(today, 7) })).map((m, i) => (
+              <div key={m.id} className="animate-fade-in flex items-center gap-2 rounded-md px-2 sm:px-3 py-2 bg-primary/5" style={{ animationDelay: `${Math.min(i * 40, 480)}ms` }}>
                 <span className="text-xs text-primary w-12 sm:w-14 shrink-0">{format(new Date(m.date), 'MMM d')}</span>
-                <span className="text-xs sm:text-sm text-primary flex-1 truncate">🚩 {m.title}</span>
+                <span className="flex items-center gap-1.5 text-xs sm:text-sm text-primary flex-1 truncate"><Flag className="h-3 w-3 shrink-0" />{m.title}</span>
               </div>
             ))}
           </CardContent>
         </Card>
-      </div>
-
-      {/* Project Status Grid */}
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Projects</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {projects.map(p => {
-            const projTasks = tasks.filter(t => t.project_id === p.id);
-            const done = projTasks.filter(t => t.status === 'done').length;
-            const total = projTasks.length;
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-            return (
-              <Link key={p.id} to={`/projects/${p.slug || p.id}`}>
-                <Card className="h-full transition-colors hover:bg-muted/50">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                      <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-1.5 flex-1 rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
-                      <span className="text-xs text-muted-foreground">{pct}%</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                      <span>{done}/{total} tasks</span>
-                    </div>
-                    <Badge className={`text-xs capitalize ${projectStatusColors[p.status] || 'bg-muted text-muted-foreground'}`}>{p.status.replace('_', ' ')}</Badge>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

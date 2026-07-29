@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +13,18 @@ import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
 
 interface TagInfo { name: string; count: number; tables: string[]; }
+interface TaggedRow { id: string; tags: string[] | null; }
+
+// Only projects/links/resources carry real `tags` columns. `tasks` has no
+// tags column, and `bookmarks` was dropped in the multi-tenant rebuild
+// (dead table, zero rows) — both are stale references from the old
+// single-user build and are intentionally left out here.
+const TAG_TABLES = ['projects', 'links', 'resources'] as const;
 
 export default function TagManager() {
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
+  const wsId = currentWorkspace?.id;
   const { toast } = useToast();
   const [tags, setTags] = useState<TagInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,13 +35,13 @@ export default function TagManager() {
   const [mergeInto, setMergeInto] = useState('');
 
   const fetchTags = async () => {
-    const tables = ['projects', 'tasks', 'links', 'bookmarks', 'resources'] as const;
+    if (!wsId) return;
     const tagMap = new Map<string, { count: number; tables: Set<string> }>();
 
-    for (const table of tables) {
-      const { data } = await supabase.from(table).select('tags');
-      (data ?? []).forEach((row: any) => {
-        ((row.tags as string[]) ?? []).forEach(tag => {
+    for (const table of TAG_TABLES) {
+      const rows = await api.select<TaggedRow>(table, wsId);
+      rows.forEach(row => {
+        (row.tags ?? []).forEach(tag => {
           if (!tagMap.has(tag)) tagMap.set(tag, { count: 0, tables: new Set() });
           const entry = tagMap.get(tag)!;
           entry.count++;
@@ -44,16 +54,15 @@ export default function TagManager() {
     setLoading(false);
   };
 
-  useEffect(() => { if (user) fetchTags(); }, [user]);
+  useEffect(() => { if (user && wsId) fetchTags(); }, [user, wsId]);
 
   const renameTag = async () => {
-    if (!newName.trim() || !selectedTag) return;
-    const tables = ['projects', 'links', 'bookmarks', 'resources'] as const;
-    for (const table of tables) {
-      const { data } = await supabase.from(table).select('id, tags').contains('tags', [selectedTag]);
-      for (const row of data ?? []) {
-        const updated = ((row as any).tags as string[]).map(t => t === selectedTag ? newName.trim() : t);
-        await supabase.from(table).update({ tags: updated }).eq('id', (row as any).id);
+    if (!newName.trim() || !selectedTag || !wsId) return;
+    for (const table of TAG_TABLES) {
+      const rows = await api.select<TaggedRow>(table, wsId);
+      for (const row of rows.filter(r => (r.tags ?? []).includes(selectedTag))) {
+        const updated = (row.tags ?? []).map(t => t === selectedTag ? newName.trim() : t);
+        await api.update(table, wsId, row.id, { tags: updated });
       }
     }
     setRenameDialog(false);
@@ -64,14 +73,13 @@ export default function TagManager() {
   };
 
   const mergeTags = async () => {
-    if (!mergeInto.trim() || !selectedTag) return;
-    const tables = ['projects', 'links', 'bookmarks', 'resources'] as const;
-    for (const table of tables) {
-      const { data } = await supabase.from(table).select('id, tags').contains('tags', [selectedTag]);
-      for (const row of data ?? []) {
-        let updated = ((row as any).tags as string[]).map(t => t === selectedTag ? mergeInto.trim() : t);
+    if (!mergeInto.trim() || !selectedTag || !wsId) return;
+    for (const table of TAG_TABLES) {
+      const rows = await api.select<TaggedRow>(table, wsId);
+      for (const row of rows.filter(r => (r.tags ?? []).includes(selectedTag))) {
+        let updated = (row.tags ?? []).map(t => t === selectedTag ? mergeInto.trim() : t);
         updated = [...new Set(updated)];
-        await supabase.from(table).update({ tags: updated }).eq('id', (row as any).id);
+        await api.update(table, wsId, row.id, { tags: updated });
       }
     }
     setMergeDialog(false);
@@ -82,12 +90,12 @@ export default function TagManager() {
   };
 
   const deleteTag = async (tag: string) => {
-    const tables = ['projects', 'links', 'bookmarks', 'resources'] as const;
-    for (const table of tables) {
-      const { data } = await supabase.from(table).select('id, tags').contains('tags', [tag]);
-      for (const row of data ?? []) {
-        const updated = ((row as any).tags as string[]).filter(t => t !== tag);
-        await supabase.from(table).update({ tags: updated }).eq('id', (row as any).id);
+    if (!wsId) return;
+    for (const table of TAG_TABLES) {
+      const rows = await api.select<TaggedRow>(table, wsId);
+      for (const row of rows.filter(r => (r.tags ?? []).includes(tag))) {
+        const updated = (row.tags ?? []).filter(t => t !== tag);
+        await api.update(table, wsId, row.id, { tags: updated });
       }
     }
     toast({ title: 'Tag deleted' });

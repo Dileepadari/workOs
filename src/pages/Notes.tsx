@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Trash2, Edit2, FileText } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BlockEditor } from '@/components/editor/BlockEditor';
+import { legacyTextToBlocks } from '@/lib/blockContent';
 
 interface Note {
   id: string;
   title: string;
   content: string | null;
+  content_json: unknown;
+  content_text: string | null;
   project_id: string | null;
   created_at: string;
   updated_at: string;
@@ -23,47 +27,62 @@ interface Note {
 
 export default function Notes() {
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Note | null>(null);
+  const [draftId, setDraftId] = useState<string>('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; noteId: string | null }>({ open: false, noteId: null });
-  const [form, setForm] = useState({ title: '', content: '' });
+  const [title, setTitle] = useState('');
+  const [pendingContent, setPendingContent] = useState<{ blocks: unknown[]; text: string } | null>(null);
+
+  const wsId = currentWorkspace?.id;
 
   const fetchNotes = async () => {
-    const { data } = await supabase.from('notes').select('*').order('updated_at', { ascending: false });
-    setNotes(data ?? []);
+    if (!wsId) return;
+    const data = await api.select<Note>('notes', wsId);
+    setNotes([...data].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at)));
     setLoading(false);
   };
 
-  useEffect(() => { if (user) fetchNotes(); }, [user]);
+  useEffect(() => { if (user && wsId) fetchNotes(); }, [user, wsId]);
+
+  const openNewNote = () => {
+    setEditing(null);
+    setTitle('');
+    setDraftId(crypto.randomUUID());
+    setPendingContent(null);
+    setDialogOpen(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!wsId) return;
+    const content_json = pendingContent?.blocks ?? (editing?.content_json ?? legacyTextToBlocks(editing?.content));
+    const content_text = pendingContent?.text ?? editing?.content_text ?? '';
     if (editing) {
-      await supabase.from('notes').update({ title: form.title, content: form.content }).eq('id', editing.id);
+      await api.update('notes', wsId, editing.id, { title, content_json, content_text });
     } else {
-      await supabase.from('notes').insert({ title: form.title, content: form.content, user_id: user!.id });
+      await api.insert('notes', wsId, { id: draftId, title, content_json, content_text });
     }
     setDialogOpen(false);
-    setForm({ title: '', content: '' });
-    setEditing(null);
     fetchNotes();
   };
 
   const handleEdit = (n: Note) => {
     setEditing(n);
-    setForm({ title: n.title, content: n.content ?? '' });
+    setTitle(n.title);
+    setDraftId(n.id);
+    setPendingContent(null);
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    setDeleteConfirm({ open: true, noteId: id });
-  };
+  const handleDelete = async (id: string) => setDeleteConfirm({ open: true, noteId: id });
 
   const confirmDelete = async () => {
-    if (!deleteConfirm.noteId) return;
-    await supabase.from('notes').delete().eq('id', deleteConfirm.noteId);
+    if (!deleteConfirm.noteId || !wsId) return;
+    await api.remove('notes', wsId, deleteConfirm.noteId);
     setDeleteConfirm({ open: false, noteId: null });
     fetchNotes();
   };
@@ -73,21 +92,31 @@ export default function Notes() {
       <PageHeader title="Notes" />
 
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{notes.length} notes</p>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm({ title: '', content: '' }); setEditing(null); } }}>
+        <p className="text-sm text-muted-foreground">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</p>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setEditing(null); setPendingContent(null); } }}>
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Note</Button>
+            <Button size="sm" onClick={openNewNote}><Plus className="mr-2 h-4 w-4" />New Note</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader><DialogTitle>{editing ? 'Edit Note' : 'New Note'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="h-9 text-sm" />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} required className="h-9 text-sm" />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Content</Label>
-                <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={8} className="text-sm resize-none" />
+                {wsId && draftId && (
+                  <BlockEditor
+                    key={draftId}
+                    content={editing?.content_json ?? legacyTextToBlocks(editing?.content)}
+                    onChange={(blocks, text) => setPendingContent({ blocks, text })}
+                    workspaceId={wsId}
+                    entityType="notes"
+                    entityId={draftId}
+                    className="min-h-[240px] rounded-md border border-border"
+                  />
+                )}
               </div>
               <Button type="submit" className="w-full">{editing ? 'Save' : 'Create Note'}</Button>
             </form>
@@ -101,25 +130,30 @@ export default function Notes() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="mb-2 text-sm text-muted-foreground">No notes yet</p>
-            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+            <Button variant="outline" size="sm" onClick={openNewNote}>
               <Plus className="mr-2 h-4 w-4" />Create your first note
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {notes.map((n) => (
-            <Card key={n.id} className="group transition-colors hover:bg-muted/50 flex flex-col">
-              <CardContent className="p-4 sm:p-6 flex flex-col flex-1">
-                <div className="mb-3 flex items-start justify-between">
-                  <h3 className="font-semibold text-foreground text-base flex-1 line-clamp-2">{n.title}</h3>
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
-                    <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => handleEdit(n)}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(n.id)}><Trash2 className="h-4 w-4" /></Button>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {notes.map((n, index) => (
+            <Card key={n.id} className="group flex flex-col transition-colors hover:bg-muted/50 animate-scale-in hover-lift" style={{ animationDelay: `${Math.min(index * 30, 480)}ms` }}>
+              <CardContent className="flex flex-1 flex-col p-4 sm:p-5">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/10">
+                      <FileText className="h-3.5 w-3.5 text-accent" />
+                    </div>
+                    <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-foreground">{n.title}</h3>
+                  </div>
+                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button variant="ghost" size="sm" className="h-7 w-7" onClick={() => handleEdit(n)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(n.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
-                {n.content && <p className="mb-4 text-sm text-muted-foreground line-clamp-4 whitespace-pre-wrap flex-1">{n.content}</p>}
-                <p className="text-xs text-muted-foreground">{format(new Date(n.updated_at), 'MMM d, yyyy')}</p>
+                {(n.content_text || n.content) && <p className="mb-3 flex-1 line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground">{n.content_text || n.content}</p>}
+                <p className="text-[10px] text-muted-foreground">Updated {formatDistanceToNow(new Date(n.updated_at), { addSuffix: true })}</p>
               </CardContent>
             </Card>
           ))}

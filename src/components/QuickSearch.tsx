@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -32,46 +33,53 @@ interface Props {
 
 export function QuickSearch({ open, onClose }: Props) {
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const search = useCallback(async (q: string) => {
-    if (!q.trim() || !user) { setResults([]); return; }
-    const pattern = `%${q}%`;
+    if (!q.trim() || !user || !currentWorkspace) { setResults([]); return; }
+    const wsId = currentWorkspace.id;
+    const needle = q.toLowerCase();
+    const matches = (s?: string | null) => !!s && s.toLowerCase().includes(needle);
+
     const [projects, tasks, links, notes, milestones, meetings, resources] = await Promise.all([
-      supabase.from('projects').select('id, name, slug, type').ilike('name', pattern).limit(5),
-      supabase.from('tasks').select('id, title, status').ilike('title', pattern).limit(5),
-      supabase.from('links').select('id, title, url, short_key, tags, description').or(`title.ilike.${pattern},url.ilike.${pattern},short_key.ilike.${pattern},description.ilike.${pattern}`).limit(5),
-      supabase.from('notes').select('id, title').ilike('title', pattern).limit(5),
-      supabase.from('milestones').select('id, title, date').ilike('title', pattern).limit(5),
-      supabase.from('meetings').select('id, title, scheduled_at').ilike('title', pattern).limit(5),
-      supabase.from('resources').select('id, title, url, type').ilike('title', pattern).limit(5),
+      api.select<{ id: string; name: string; slug: string | null; type: string }>('projects', wsId),
+      api.select<{ id: string; title: string; status: string }>('tasks', wsId),
+      api.select<{ id: string; title: string; url: string | null; short_key: string | null; tags: string[] | null; description: string | null }>('links', wsId),
+      api.select<{ id: string; title: string }>('notes', wsId),
+      api.select<{ id: string; title: string; date: string }>('milestones', wsId),
+      api.select<{ id: string; title: string; scheduled_at: string }>('meetings', wsId),
+      api.select<{ id: string; title: string; url: string | null; type: string }>('resources', wsId),
     ]);
+
     const r: SearchResult[] = [
-      ...(projects.data ?? []).map(p => ({ type: 'project' as const, id: p.slug || p.id, title: p.name, subtitle: p.type })),
-      ...(tasks.data ?? []).map(t => ({ type: 'task' as const, id: t.id, title: t.title, subtitle: t.status })),
-      ...(links.data ?? []).map(l => ({ type: 'link' as const, id: l.id, title: l.title, subtitle: l.url, url: l.url })),
-      ...(notes.data ?? []).map(n => ({ type: 'note' as const, id: n.id, title: n.title })),
-      ...(milestones.data ?? []).map(m => ({ type: 'milestone' as const, id: m.id, title: m.title, subtitle: m.date })),
-      ...(meetings.data ?? []).map(m => ({ type: 'meeting' as const, id: m.id, title: m.title, subtitle: m.scheduled_at })),
-      ...(resources.data ?? []).map(r => ({ type: 'resource' as const, id: r.id, title: r.title, subtitle: r.type, url: r.url })),
+      ...projects.filter(p => matches(p.name)).slice(0, 5).map(p => ({ type: 'project' as const, id: p.slug || p.id, title: p.name, subtitle: p.type })),
+      ...tasks.filter(t => matches(t.title)).slice(0, 5).map(t => ({ type: 'task' as const, id: t.id, title: t.title, subtitle: t.status })),
+      ...links.filter(l => matches(l.title) || matches(l.url) || matches(l.short_key) || matches(l.description)).slice(0, 5).map(l => ({ type: 'link' as const, id: l.id, title: l.title, subtitle: l.url ?? undefined, url: l.url ?? undefined })),
+      ...notes.filter(n => matches(n.title)).slice(0, 5).map(n => ({ type: 'note' as const, id: n.id, title: n.title })),
+      ...milestones.filter(m => matches(m.title)).slice(0, 5).map(m => ({ type: 'milestone' as const, id: m.id, title: m.title, subtitle: m.date })),
+      ...meetings.filter(m => matches(m.title)).slice(0, 5).map(m => ({ type: 'meeting' as const, id: m.id, title: m.title, subtitle: m.scheduled_at })),
+      ...resources.filter(rr => matches(rr.title)).slice(0, 5).map(rr => ({ type: 'resource' as const, id: rr.id, title: rr.title, subtitle: rr.type, url: rr.url ?? undefined })),
     ];
 
     // Also search links by tags
     if (q.length >= 2) {
-      const { data: tagLinks } = await supabase.from('links').select('id, title, url, short_key').contains('tags', [q]).limit(3);
-      (tagLinks ?? []).forEach(l => {
-        if (!r.find(x => x.id === l.id)) {
-          r.push({ type: 'link', id: l.id, title: l.title, subtitle: l.url, url: l.url });
-        }
-      });
+      links
+        .filter(l => l.tags?.some(tag => tag.toLowerCase().includes(needle)))
+        .slice(0, 3)
+        .forEach(l => {
+          if (!r.find(x => x.id === l.id)) {
+            r.push({ type: 'link', id: l.id, title: l.title, subtitle: l.url ?? undefined, url: l.url ?? undefined });
+          }
+        });
     }
 
     setResults(r);
     setSelectedIndex(0);
-  }, [user]);
+  }, [user, currentWorkspace]);
 
   useEffect(() => {
     const timer = setTimeout(() => search(query), 200);
@@ -102,17 +110,17 @@ export function QuickSearch({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="p-0 gap-0 max-w-lg">
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search everything... projects, tasks, links, notes, meetings"
-            className="border-0 p-0 h-auto focus-visible:ring-0 text-sm"
+            placeholder="Search everything..."
+            className="min-w-0 flex-1 border-0 p-0 h-auto focus-visible:ring-0 text-sm"
             autoFocus
           />
-          <kbd className="hidden sm:inline-block rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">ESC</kbd>
+          <kbd className="hidden sm:inline-block shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">ESC</kbd>
         </div>
         {results.length > 0 && (
           <div className="max-h-80 overflow-y-auto py-2">

@@ -1,1 +1,7 @@
 project_id = "ttcpbtoehjtovxawsowm"
+
+[functions.workos]
+# This function implements its own auth scheme (a self-issued JWT checked
+# against public.users), so Supabase's platform-level JWT gate must be off -
+# otherwise every request needs a *Supabase*-issued JWT before our code runs.
+verify_jwt = false

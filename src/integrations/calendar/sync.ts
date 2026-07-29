@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 
 export interface SyncedEvent {
   id?: string;
@@ -352,7 +352,7 @@ export function areDuplicateEvents(
 export async function syncCalendarEvents(
   provider: 'google' | 'outlook',
   icsUrl: string,
-  userId: string
+  workspaceId: string
 ): Promise<{ added: number; duplicates: number; errors: string[] }> {
   const errors: string[] = [];
   let added = 0;
@@ -367,41 +367,15 @@ export async function syncCalendarEvents(
     }
 
     // Fetch all existing events from all tables in parallel (single batch)
-    const [
-      { data: existingEvents, error: fetchError },
-      { data: tasks, error: tasksError },
-      { data: milestones, error: milestonesError },
-      { data: meetings, error: meetingsError },
-      { data: generalEvents, error: eventsError },
-    ] = await Promise.all([
-      supabase
-        .from('synced_events')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('provider', provider),
-      supabase
-        .from('tasks')
-        .select('title, due_date, due_time')
-        .eq('user_id', userId)
-        .not('due_date', 'is', null),
-      supabase
-        .from('milestones')
-        .select('title, date')
-        .eq('user_id', userId),
-      supabase
-        .from('meetings')
-        .select('title, scheduled_at')
-        .eq('user_id', userId),
-      supabase
-        .from('events')
-        .select('title, scheduled_at')
-        .eq('user_id', userId),
+    const [existingEvents, allTasks, milestones, meetings, generalEvents] = await Promise.all([
+      api.select<any>('synced_events', workspaceId, { provider }),
+      api.select<any>('tasks', workspaceId),
+      api.select<any>('milestones', workspaceId),
+      api.select<any>('meetings', workspaceId),
+      api.select<any>('events', workspaceId),
     ]);
 
-    if (fetchError) {
-      errors.push(`Failed to fetch existing events: ${fetchError.message}`);
-      return { added, duplicates, errors };
-    }
+    const tasks = allTasks.filter((t) => t.due_date != null);
 
     // Build set of existing event signatures from ALL sources (single pass)
     const existingSignatures = new Set<string>();
@@ -464,7 +438,6 @@ export async function syncCalendarEvents(
       }
 
       eventsToInsert.push({
-        user_id: userId,
         provider,
         external_event_id: event.uid,
         title: event.summary,
@@ -482,24 +455,20 @@ export async function syncCalendarEvents(
       const batchSize = 100;
       for (let i = 0; i < eventsToInsert.length; i += batchSize) {
         const batch = eventsToInsert.slice(i, i + batchSize);
-        const { error: insertError } = await supabase
-          .from('synced_events')
-          .upsert(batch, { onConflict: 'user_id,provider,external_event_id' });
-
-        if (insertError) {
-          errors.push(`Failed to insert events batch ${i / batchSize + 1}: ${insertError.message}`);
-        } else {
+        try {
+          await api.upsert('synced_events', workspaceId, batch, 'created_by,provider,external_event_id');
           added += batch.length;
+        } catch (err) {
+          errors.push(`Failed to insert events batch ${i / batchSize + 1}: ${(err as Error).message}`);
         }
       }
     }
 
     // Update last synced time
-    await supabase
-      .from('calendar_integrations')
-      .update({ last_synced_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('provider', provider);
+    const [integration] = await api.select<any>('calendar_integrations', workspaceId, { provider });
+    if (integration) {
+      await api.update('calendar_integrations', workspaceId, integration.id, { last_synced_at: new Date().toISOString() });
+    }
 
     return { added, duplicates, errors };
   } catch (error) {
@@ -509,62 +478,40 @@ export async function syncCalendarEvents(
 }
 
 /**
- * Get all calendar integrations for user
+ * Get all calendar integrations for the workspace (personal to the caller).
  */
-export async function getCalendarIntegrations(userId: string) {
-  const { data, error } = await supabase
-    .from('calendar_integrations')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
+export async function getCalendarIntegrations(workspaceId: string) {
+  try {
+    return await api.select<any>('calendar_integrations', workspaceId);
+  } catch (error) {
     console.error('Error fetching calendar integrations:', error);
     return [];
   }
-
-  return data || [];
 }
 
 /**
  * Save or update calendar integration (ICS URL)
  */
 export async function saveCalendarIntegration(
-  userId: string,
+  workspaceId: string,
   provider: 'google' | 'outlook',
   icsUrl: string
 ) {
-  const { data, error } = await supabase
-    .from('calendar_integrations')
-    .upsert(
-      {
-        user_id: userId,
-        provider,
-        ics_url: icsUrl,
-        sync_enabled: true,
-      },
-      { onConflict: 'user_id,provider' }
-    )
-    .select();
-
-  if (error) {
+  try {
+    return await api.upsert('calendar_integrations', workspaceId, { provider, ics_url: icsUrl, sync_enabled: true }, 'created_by,provider');
+  } catch (error) {
     console.error('Error saving calendar integration:', error);
     throw error;
   }
-
-  return data?.[0];
 }
 
 /**
  * Toggle sync for a calendar integration
  */
-export async function toggleCalendarSync(integrationId: string, enabled: boolean) {
-  const { error } = await supabase
-    .from('calendar_integrations')
-    .update({ sync_enabled: enabled })
-    .eq('id', integrationId);
-
-  if (error) {
+export async function toggleCalendarSync(workspaceId: string, integrationId: string, enabled: boolean) {
+  try {
+    await api.update('calendar_integrations', workspaceId, integrationId, { sync_enabled: enabled });
+  } catch (error) {
     console.error('Error toggling calendar sync:', error);
     throw error;
   }
@@ -573,37 +520,23 @@ export async function toggleCalendarSync(integrationId: string, enabled: boolean
 /**
  * Delete calendar integration
  */
-export async function deleteCalendarIntegration(integrationId: string) {
-  const { error } = await supabase
-    .from('calendar_integrations')
-    .delete()
-    .eq('id', integrationId);
-
-  if (error) {
+export async function deleteCalendarIntegration(workspaceId: string, integrationId: string) {
+  try {
+    await api.remove('calendar_integrations', workspaceId, integrationId);
+  } catch (error) {
     console.error('Error deleting calendar integration:', error);
     throw error;
   }
 }
 
 /**
- * Get synced events for user
+ * Get synced events for the workspace
  */
-export async function getSyncedEvents(userId: string, provider?: 'google' | 'outlook') {
-  let query = supabase
-    .from('synced_events')
-    .select('*')
-    .eq('user_id', userId);
-
-  if (provider) {
-    query = query.eq('provider', provider);
-  }
-
-  const { data, error } = await query.order('start_time', { ascending: false });
-
-  if (error) {
+export async function getSyncedEvents(workspaceId: string, provider?: 'google' | 'outlook') {
+  try {
+    return await api.select<any>('synced_events', workspaceId, provider ? { provider } : undefined);
+  } catch (error) {
     console.error('Error fetching synced events:', error);
     return [];
   }
-
-  return data || [];
 }

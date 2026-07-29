@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { QuickCapture } from './QuickCapture';
+import { OnboardingWizard } from './OnboardingWizard';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import logoMark from '@/assets/logo-mark.png';
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -24,8 +26,8 @@ export function AppLayout() {
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary">
-            <span className="text-xs font-bold text-primary-foreground">W</span>
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+            <img src={logoMark} alt="" className="h-full w-full object-contain logo-mono" />
           </div>
           <span className="text-xs font-semibold text-foreground">WorkOS</span>
         </div>
@@ -34,6 +36,7 @@ export function AppLayout() {
         </div>
       </main>
       <QuickCapture />
+      <OnboardingWizard />
     </div>
   );
 }

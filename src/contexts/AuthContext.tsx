@@ -1,59 +1,74 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { auth as authApi } from '@/lib/api';
+import { getToken, setToken, clearToken, decodeToken } from '@/lib/authToken';
+
+// Custom username/password + JWT auth (see supabase/functions/workos) — no
+// Supabase Auth/GoTrue anywhere, since this app is headed for a self-hosted
+// Supabase instance with no Auth service. `email` stays optional on the user
+// object since not every account has one set.
+
+interface AuthUser {
+  id: string;
+  username: string;
+  email?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signOut: () => Promise<void>;
+  signIn: (username: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (username: string, password: string, displayName?: string, email?: string) => Promise<{ error: Error | null }>;
+  signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const token = getToken();
+    if (token) {
+      const payload = decodeToken(token);
+      if (payload) {
+        setUser({ id: payload.sub, username: payload.username });
+      } else {
+        clearToken();
+      }
+    }
+    setLoading(false);
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+  const signIn = async (username: string, password: string) => {
+    try {
+      const { token, user: apiUser } = await authApi.login(username, password);
+      setToken(token);
+      setUser({ id: apiUser.id, username: apiUser.username });
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    return { error: error as Error | null };
+  const signUp = async (username: string, password: string, displayName?: string, email?: string) => {
+    try {
+      const { token, user: apiUser } = await authApi.signup(username, password, displayName, email);
+      setToken(token);
+      setUser({ id: apiUser.id, username: apiUser.username, email });
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = () => {
+    clearToken();
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -15,6 +15,8 @@ import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PROJECT_STATUS_COLORS } from '@/lib/taskMeta';
+import { preventAccidentalDialogClose } from '@/lib/utils';
+import { CardGridSkeleton } from '@/components/skeletons/primitives';
 
 interface Project {
   id: string; name: string; description: string | null; status: 'active' | 'archived' | 'on_hold';
@@ -144,7 +146,7 @@ export default function Projects() {
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Project</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" {...preventAccidentalDialogClose}>
             <DialogHeader>
               <DialogTitle>{editingProject ? 'Edit Project' : 'New Project'}</DialogTitle>
             </DialogHeader>
@@ -259,7 +261,7 @@ export default function Projects() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <CardGridSkeleton count={6} />
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">

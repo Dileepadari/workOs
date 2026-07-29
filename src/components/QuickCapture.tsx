@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { api } from '@/lib/api';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useToast } from '@/hooks/use-toast';
+import { preventAccidentalDialogClose } from '@/lib/utils';
 
 type CaptureType = 'task' | 'note' | 'link' | 'log';
 
@@ -98,7 +99,7 @@ export function QuickCapture() {
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" {...preventAccidentalDialogClose}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {items.find(i => i.type === type)?.icon && (() => { const Icon = items.find(i => i.type === type)!.icon; return <Icon className="h-4 w-4" />; })()}

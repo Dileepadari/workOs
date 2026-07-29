@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
 import { PRIORITY_COLORS } from '@/lib/taskMeta';
+import { DailyLogBodySkeleton } from '@/components/skeletons/pages';
 
 interface DailyLog {
   id: string; date: string; notes_html: string | null;
@@ -194,7 +195,7 @@ export default function DailyLogPage() {
       </div>
 
       {loading ? (
-        <div className="flex h-32 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+        <DailyLogBodySkeleton />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Main column */}

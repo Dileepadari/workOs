@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import logoMark from '@/assets/logo-mark.png';
+import { AuthSkeleton } from '@/components/skeletons/pages';
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -17,11 +18,7 @@ export default function Auth() {
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <AuthSkeleton />;
   }
 
   if (user) return <Navigate to="/" replace />;

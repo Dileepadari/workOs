@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { Copy, Users, Mail, UserPlus, Crown } from 'lucide-react';
+import { MemberListSkeleton } from '@/components/skeletons/pages';
 
 interface Member {
   role: string;
@@ -147,7 +148,7 @@ export default function TeamPage() {
             <CardTitle className="flex items-center gap-2 text-sm"><Users className="h-4 w-4 text-primary" />Members</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+            {loading && <MemberListSkeleton />}
             {!loading && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {members.map((m, index) => (

@@ -16,7 +16,9 @@ import { TaskFilterBar, DEFAULT_FILTERS, applyTaskFilters, type TaskFilters } fr
 import { TaskListView } from '@/components/tasks/TaskListView';
 import { TaskBoardView } from '@/components/tasks/TaskBoardView';
 import { BulkActionBar } from '@/components/tasks/BulkActionBar';
+import { preventAccidentalDialogClose } from '@/lib/utils';
 import { AssigneePicker } from '@/components/tasks/AssigneePicker';
+import { ListSkeleton } from '@/components/skeletons/primitives';
 import type { Task, ProjectLite, Member } from '@/components/tasks/types';
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
@@ -200,7 +202,7 @@ export default function Tasks() {
           </Button>
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild><Button size="sm" onClick={openNewTask}><Plus className="mr-2 h-4 w-4" />New Task</Button></DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl" {...preventAccidentalDialogClose}>
               <DialogHeader><DialogTitle>{editingTask ? 'Edit Task' : 'New Task'}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -313,7 +315,7 @@ export default function Tasks() {
       />
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <ListSkeleton count={6} />
       ) : view === 'list' ? (
         <TaskListView tasks={visibleTasks} projectMap={projectMap} memberMap={memberMap} selectedIds={selectedIds} onToggleSelect={toggleSelect} onEdit={handleEdit} onDelete={handleDelete} />
       ) : (
@@ -321,7 +323,7 @@ export default function Tasks() {
       )}
 
       <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}>
-        <DialogContent>
+        <DialogContent {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>Save current view</DialogTitle></DialogHeader>
           <Input value={saveViewName} onChange={(e) => setSaveViewName(e.target.value)} placeholder="e.g. My urgent tasks" autoFocus />
           <DialogFooter><Button onClick={saveCurrentView} disabled={!saveViewName.trim()}>Save</Button></DialogFooter>

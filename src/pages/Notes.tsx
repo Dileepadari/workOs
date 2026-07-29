@@ -13,6 +13,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
+import { preventAccidentalDialogClose } from '@/lib/utils';
+import { CardGridSkeleton } from '@/components/skeletons/primitives';
 
 interface Note {
   id: string;
@@ -97,7 +99,7 @@ export default function Notes() {
           <DialogTrigger asChild>
             <Button size="sm" onClick={openNewNote}><Plus className="mr-2 h-4 w-4" />New Note</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" {...preventAccidentalDialogClose}>
             <DialogHeader><DialogTitle>{editing ? 'Edit Note' : 'New Note'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -125,7 +127,7 @@ export default function Notes() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <CardGridSkeleton count={8} />
       ) : notes.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">

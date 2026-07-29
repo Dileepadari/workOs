@@ -13,6 +13,8 @@ import { Plus, Trash2, ExternalLink, Search, Link2, Copy, Edit2 } from 'lucide-r
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { preventAccidentalDialogClose } from '@/lib/utils';
+import { ResourcesSkeleton } from '@/components/skeletons/pages';
 
 interface LinkItem {
   id: string;
@@ -156,7 +158,7 @@ export default function Resources() {
   const exactLinkMatch = linkSearch && links.find(l => l.short_key?.toLowerCase() === linkSearch.toLowerCase());
 
   if (loading) {
-    return <p className="text-muted-foreground">Loading...</p>;
+    return <ResourcesSkeleton />;
   }
 
   return (
@@ -173,7 +175,7 @@ export default function Resources() {
                 Save Link
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent {...preventAccidentalDialogClose}>
               <DialogHeader>
                 <DialogTitle>{editingLink ? 'Edit Link' : 'Save a Link'}</DialogTitle>
               </DialogHeader>

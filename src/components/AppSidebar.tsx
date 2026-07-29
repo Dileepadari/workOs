@@ -4,7 +4,7 @@ import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, 
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { cn } from '@/lib/utils';
+import { cn, preventAccidentalDialogClose } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -99,7 +99,7 @@ function WorkspaceSwitcher() {
       </DropdownMenu>
 
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent>
+        <DialogContent {...preventAccidentalDialogClose}>
           <DialogHeader>
             <DialogTitle>Create workspace</DialogTitle>
           </DialogHeader>

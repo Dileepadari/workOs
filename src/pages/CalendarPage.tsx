@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { ChevronLeft, ChevronRight, CheckSquare, Flag, Calendar as CalIcon, Video, Plus, Pencil, Trash2, Clock, Sparkles, Download, Upload, RefreshCw, Link2 } from 'lucide-react';
+import { preventAccidentalDialogClose } from '@/lib/utils';
+import { CalendarSkeleton } from '@/components/skeletons/pages';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, isToday, addDays, parseISO } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/hooks/use-toast';
@@ -508,7 +510,7 @@ export default function CalendarPage() {
 
   const projectName = (pid: string) => projects.find(p => p.id === pid)?.name || '';
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (loading) return <CalendarSkeleton />;
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -724,7 +726,7 @@ export default function CalendarPage() {
 
       {/* Add/Edit Event Modal */}
       <Dialog open={addDialog} onOpenChange={(v) => { if (!v) { setAddDialog(false); setEditMode(false); } }}>
-        <DialogContent>
+        <DialogContent {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>{editMode ? 'Edit Event' : 'Add Calendar Event'}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveEvent} className="space-y-4">
             <div className="space-y-2"><Label>Title</Label><Input value={eventForm.title} onChange={e => setEventForm({ ...eventForm, title: e.target.value })} required /></div>

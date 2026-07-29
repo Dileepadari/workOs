@@ -23,6 +23,8 @@ import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { preventAccidentalDialogClose } from '@/lib/utils';
+import { ProjectDetailSkeleton } from '@/components/skeletons/pages';
 import type { Member } from '@/components/tasks/types';
 
 interface Project { id: string; name: string; description: string | null; status: string; color: string; slug: string | null; type: string; tags: string[]; start_date: string | null; target_end_date: string | null; repo_url: string | null; status_note: string | null; created_at: string; updated_at: string; }
@@ -200,7 +202,7 @@ export default function ProjectDetail() {
 
   const updateStatusNote = async () => { if (!project || !wsId) return; await api.update('projects', wsId, project.id, { status_note: statusNote || null }); toast({ title: 'Status note updated' }); };
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (loading) return <ProjectDetailSkeleton />;
   if (!project) return <div className="animate-fade-in space-y-4"><p className="text-muted-foreground">Project not found.</p><Button variant="outline" asChild><Link to="/projects">Back</Link></Button></div>;
 
   const totalTasks = tasks.length;
@@ -329,7 +331,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={taskDialog} onOpenChange={v => { setTaskDialog(v); if (!v) { setEditingTask(null); setTaskForm({ title: '', priority: 'medium', due_date: '', due_time: '', time_estimate_min: '', status: 'todo' }); } }}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Task</Button></DialogTrigger>
-              <DialogContent>
+              <DialogContent {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingTask ? 'Edit Task' : 'Add Task'}</DialogTitle></DialogHeader>
                 <form onSubmit={addTask} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={taskForm.title} onChange={e => setTaskForm({ ...taskForm, title: e.target.value })} required /></div>
@@ -415,7 +417,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={milestoneDialog} onOpenChange={setMilestoneDialog}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Milestone</Button></DialogTrigger>
-              <DialogContent>
+              <DialogContent {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingMilestone ? 'Edit Milestone' : 'Add Milestone'}</DialogTitle></DialogHeader>
                 <form onSubmit={addMilestone} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={msForm.title} onChange={e => setMsForm({ ...msForm, title: e.target.value })} required /></div>
@@ -454,7 +456,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={resourceDialog} onOpenChange={setResourceDialog}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Resource</Button></DialogTrigger>
-              <DialogContent>
+              <DialogContent {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingResource ? 'Edit Resource' : 'Add Resource'}</DialogTitle></DialogHeader>
                 <form onSubmit={addResource} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={resForm.title} onChange={e => setResForm({ ...resForm, title: e.target.value })} required /></div>
@@ -513,7 +515,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={meetingDialog} onOpenChange={(o) => { setMeetingDialog(o); if (!o) { setEditingMeeting(null); setPendingAgenda(null); } }}>
               <DialogTrigger asChild><Button size="sm" onClick={openNewMeeting}><Plus className="mr-1 h-3.5 w-3.5" />Add Meeting</Button></DialogTrigger>
-              <DialogContent>
+              <DialogContent {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</DialogTitle></DialogHeader>
                 <form onSubmit={addMeeting} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={meetForm.title} onChange={e => setMeetForm({ ...meetForm, title: e.target.value })} required /></div>

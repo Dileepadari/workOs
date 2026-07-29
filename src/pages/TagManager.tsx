@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
+import { preventAccidentalDialogClose } from '@/lib/utils';
+import { TagManagerSkeleton } from '@/components/skeletons/pages';
 
 interface TagInfo { name: string; count: number; tables: string[]; }
 interface TaggedRow { id: string; tags: string[] | null; }
@@ -102,7 +104,7 @@ export default function TagManager() {
     fetchTags();
   };
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (loading) return <TagManagerSkeleton />;
 
   return (
     <div className="animate-fade-in space-y-6 max-w-[800px]">
@@ -146,7 +148,7 @@ export default function TagManager() {
 
       {/* Rename Dialog */}
       <Dialog open={renameDialog} onOpenChange={setRenameDialog}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm" {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>Rename Tag</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Renaming "{selectedTag}" across all records.</p>
@@ -161,7 +163,7 @@ export default function TagManager() {
 
       {/* Merge Dialog */}
       <Dialog open={mergeDialog} onOpenChange={setMergeDialog}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm" {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>Merge Tag</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Merge "{selectedTag}" into another tag.</p>

@@ -14,6 +14,7 @@ import { format, isToday, isBefore, startOfToday, addDays, isWithinInterval } fr
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { PRIORITY_COLORS, PROJECT_STATUS_COLORS } from '@/lib/taskMeta';
+import { DashboardSkeleton } from '@/components/skeletons/pages';
 
 function DateTime() {
   const [time, setTime] = useState(new Date());
@@ -181,7 +182,7 @@ export default function Dashboard() {
     </div>
   );
 
-  if (loading) return <div className="flex h-32 items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (loading) return <DashboardSkeleton />;
 
   return (
     <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">

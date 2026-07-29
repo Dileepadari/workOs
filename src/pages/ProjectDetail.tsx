@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { api, workspaces as workspacesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,41 +13,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CheckSquare, FileText, Flag, LinkIcon, MessageSquare, Calendar, Users, Plus, Trash2, ExternalLink, Clock, Pin, Copy, Edit2, ArrowRight, SmilePlus, UserPlus } from 'lucide-react';
+import { ArrowLeft, CheckSquare, FileText, Flag, LinkIcon, MessageSquare, Calendar, Users, Plus, Trash2, ExternalLink, Clock, Edit2, ArrowRight, CheckCircle2, Circle, GitBranch, CalendarClock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TASK_STATUSES, TASK_STATUS_LABELS, PRIORITY_COLORS, PROJECT_STATUS_COLORS, getNextStatus } from '@/lib/taskMeta';
+import { BlockEditor } from '@/components/editor/BlockEditor';
+import { legacyTextToBlocks } from '@/lib/blockContent';
+import { CommentsPanel } from '@/components/CommentsPanel';
+import { ActivityFeed } from '@/components/ActivityFeed';
+import type { Member } from '@/components/tasks/types';
 
-interface Project { id: string; name: string; description: string | null; status: string; color: string; slug: string | null; type: string; tags: string[]; start_date: string | null; target_end_date: string | null; repo_url: string | null; status_note: string | null; collab_password_hash: string | null; created_at: string; updated_at: string; }
-interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; due_time: string | null; time_estimate_min: number | null; description: string | null; }
+interface Project { id: string; name: string; description: string | null; status: string; color: string; slug: string | null; type: string; tags: string[]; start_date: string | null; target_end_date: string | null; repo_url: string | null; status_note: string | null; created_at: string; updated_at: string; }
+interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; due_time: string | null; time_estimate_min: number | null; description: string | null; sort_order: number; created_at: string; }
 interface Milestone { id: string; title: string; date: string; is_completed: boolean; }
 interface Resource { id: string; title: string; url: string | null; type: string; tags: string[]; }
-interface Discussion { id: string; body_html: string; author: string; author_type: string; is_pinned: boolean; created_at: string; user_id: string; }
-interface DiscussionReaction { discussion_id: string; emoji: string; count: number; reacted: boolean; }
-interface Meeting { id: string; title: string; scheduled_at: string; attendees: string | null; agenda_html: string | null; notes_html: string | null; action_items: string | null; }
-interface CollabSession { id: string; email: string; last_access_at: string; expires_at: string; }
-interface ProjectCollaborator { id: string; email: string; role: string; invited_at: string; last_access_at: string | null; }
+interface Meeting { id: string; title: string; scheduled_at: string; attendees: string | null; agenda_html: string | null; agenda_json: unknown; agenda_text: string | null; notes_html: string | null; notes_text: string | null; action_items: string | null; }
 
-const priorityColors: Record<string, string> = { urgent: 'bg-destructive/20 text-destructive', high: 'bg-warning/20 text-warning', medium: 'bg-primary/20 text-primary', low: 'bg-muted text-muted-foreground' };
-const statusColors: Record<string, string> = { active: 'bg-success/20 text-success', on_hold: 'bg-warning/20 text-warning', archived: 'bg-muted text-muted-foreground' };
-const taskStatusLabels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', blocked: 'Blocked', done: 'Done', dropped: 'Dropped' };
-const taskStatusOrder = ['todo', 'in_progress', 'blocked', 'done', 'dropped'];
-const REACTION_EMOJIS = ['👍', '❤️', '🎉', '🤔', '👀', '🚀'];
+const priorityColors = PRIORITY_COLORS;
+const statusColors = PROJECT_STATUS_COLORS;
+const taskStatusLabels = TASK_STATUS_LABELS;
+const taskStatusOrder = TASK_STATUSES;
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
-  const [discussions, setDiscussions] = useState<Discussion[]>([]);
-  const [reactions, setReactions] = useState<Record<string, DiscussionReaction[]>>({});
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [collabSessions, setCollabSessions] = useState<CollabSession[]>([]);
-  const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Forms
@@ -66,84 +66,68 @@ export default function ProjectDetail() {
   const [deleteResourceConfirm, setDeleteResourceConfirm] = useState<{ open: boolean; resId: string | null }>({ open: false, resId: null });
 
   const [meetingDialog, setMeetingDialog] = useState(false);
-  const [meetForm, setMeetForm] = useState({ title: '', scheduled_at: '', attendees: '', agenda: '' });
+  const [meetForm, setMeetForm] = useState({ title: '', scheduled_at: '', attendees: '' });
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [deleteMeetingConfirm, setDeleteMeetingConfirm] = useState<{ open: boolean; meetId: string | null }>({ open: false, meetId: null });
+  const [meetingDraftId, setMeetingDraftId] = useState('');
+  const [pendingAgenda, setPendingAgenda] = useState<{ blocks: unknown[]; text: string } | null>(null);
 
-  const [deleteDiscussionConfirm, setDeleteDiscussionConfirm] = useState<{ open: boolean; discId: string | null }>({ open: false, discId: null });
-  const [editingDiscussion, setEditingDiscussion] = useState<Discussion | null>(null);
-  const [discussionText, setDiscussionText] = useState('');
   const [statusNote, setStatusNote] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
+
+  const wsId = currentWorkspace?.id;
 
   useEffect(() => {
-    if (!user || !id) return;
+    if (!user || !id || !wsId) return;
     const load = async () => {
-      let projRes = await supabase.from('projects').select('*').eq('slug', id).maybeSingle();
-      if (!projRes.data) projRes = await supabase.from('projects').select('*').eq('id', id).maybeSingle();
-      if (!projRes.data) { setLoading(false); return; }
-      setProject(projRes.data);
-      setStatusNote(projRes.data.status_note ?? '');
-      await reload(projRes.data.id);
+      let rows = await api.select<Project>('projects', wsId, { slug: id });
+      if (rows.length === 0) rows = await api.select<Project>('projects', wsId, { id });
+      if (rows.length === 0) { setLoading(false); return; }
+      setProject(rows[0]);
+      setStatusNote(rows[0].status_note ?? '');
+      await reload(rows[0].id);
       setLoading(false);
     };
     load();
-  }, [user, id]);
+    workspacesApi.members(wsId).then(setMembers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, id, wsId]);
 
   const reload = async (pid?: string) => {
     const projectId = pid || project?.id;
-    if (!projectId) return;
-    const [t, m, r, d, mt, cs, pc] = await Promise.all([
-      supabase.from('tasks').select('*').eq('project_id', projectId).order('sort_order').order('created_at', { ascending: false }),
-      supabase.from('milestones').select('*').eq('project_id', projectId).order('date'),
-      supabase.from('resources').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
-      supabase.from('discussions').select('*').eq('project_id', projectId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
-      supabase.from('meetings').select('*').eq('project_id', projectId).order('scheduled_at', { ascending: false }),
-      supabase.from('collaborator_sessions').select('*').eq('project_id', projectId).order('last_access_at', { ascending: false }),
-      supabase.from('project_collaborators').select('*').eq('project_id', projectId).order('invited_at', { ascending: false }),
+    if (!projectId || !wsId) return;
+    const [t, m, r, mt] = await Promise.all([
+      api.select<Task>('tasks', wsId, { project_id: projectId }),
+      api.select<Milestone>('milestones', wsId, { project_id: projectId }),
+      api.select<Resource>('resources', wsId, { project_id: projectId }),
+      api.select<Meeting>('meetings', wsId, { project_id: projectId }),
     ]);
-    setTasks(t.data ?? []); setMilestones(m.data ?? []); setResources(r.data ?? []);
-    setDiscussions(d.data ?? []); setMeetings(mt.data ?? []);
-    setCollabSessions(cs.data ?? []); setCollaborators(pc.data ?? []);
-
-    // Load reactions
-    const discIds = (d.data ?? []).map(disc => disc.id);
-    if (discIds.length > 0) {
-      const { data: rxns } = await supabase.from('discussion_reactions').select('*').in('discussion_id', discIds);
-      const grouped: Record<string, DiscussionReaction[]> = {};
-      (rxns ?? []).forEach(rx => {
-        if (!grouped[rx.discussion_id]) grouped[rx.discussion_id] = [];
-        const existing = grouped[rx.discussion_id].find(r => r.emoji === rx.emoji);
-        if (existing) {
-          existing.count++;
-          if (rx.user_identifier === user?.id) existing.reacted = true;
-        } else {
-          grouped[rx.discussion_id].push({ discussion_id: rx.discussion_id, emoji: rx.emoji, count: 1, reacted: rx.user_identifier === user?.id });
-        }
-      });
-      setReactions(grouped);
-    }
+    setTasks([...t].sort((a, b) => a.sort_order - b.sort_order || +new Date(b.created_at) - +new Date(a.created_at)));
+    setMilestones([...m].sort((a, b) => +new Date(a.date) - +new Date(b.date)));
+    setResources(r);
+    setMeetings([...mt].sort((a, b) => +new Date(b.scheduled_at) - +new Date(a.scheduled_at)));
   };
 
   const moveTaskStatus = async (task: Task, newStatus: string) => {
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id);
+    if (!wsId) return;
+    await api.update('tasks', wsId, task.id, { status: newStatus });
     reload();
   };
 
   const toggleTask = async (task: Task) => {
-    await supabase.from('tasks').update({ status: task.status === 'done' ? 'todo' : 'done' }).eq('id', task.id);
+    if (!wsId) return;
+    await api.update('tasks', wsId, task.id, { status: task.status === 'done' ? 'todo' : 'done' });
     reload();
   };
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!wsId || !project) return;
+    const payload = { title: taskForm.title, priority: taskForm.priority, due_date: taskForm.due_date || null, due_time: taskForm.due_time || null, time_estimate_min: taskForm.time_estimate_min ? parseInt(taskForm.time_estimate_min) : null, status: taskForm.status };
     if (editingTask) {
-      await supabase.from('tasks').update({ title: taskForm.title, priority: taskForm.priority, due_date: taskForm.due_date || null, due_time: taskForm.due_time || null, time_estimate_min: taskForm.time_estimate_min ? parseInt(taskForm.time_estimate_min) : null, status: taskForm.status }).eq('id', editingTask.id);
+      await api.update('tasks', wsId, editingTask.id, payload);
       toast({ title: 'Task updated' });
     } else {
-      await supabase.from('tasks').insert({ title: taskForm.title, priority: taskForm.priority, due_date: taskForm.due_date || null, due_time: taskForm.due_time || null, time_estimate_min: taskForm.time_estimate_min ? parseInt(taskForm.time_estimate_min) : null, project_id: project!.id, user_id: user!.id, status: taskForm.status || 'todo' });
+      await api.insert('tasks', wsId, { ...payload, project_id: project.id, status: taskForm.status || 'todo' });
       toast({ title: 'Task added' });
     }
     setTaskDialog(false);
@@ -160,87 +144,61 @@ export default function ProjectDetail() {
 
   const handleDeleteTask = (id: string) => setDeleteTaskConfirm({ open: true, taskId: id });
   const confirmDeleteTask = async () => {
-    if (!deleteTaskConfirm.taskId) return;
-    await supabase.from('tasks').delete().eq('id', deleteTaskConfirm.taskId);
+    if (!deleteTaskConfirm.taskId || !wsId) return;
+    await api.remove('tasks', wsId, deleteTaskConfirm.taskId);
     setDeleteTaskConfirm({ open: false, taskId: null });
     toast({ title: 'Task deleted' }); reload();
   };
 
   const addMilestone = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!wsId || !project) return;
     if (editingMilestone) {
-      await supabase.from('milestones').update({ title: msForm.title, date: msForm.date }).eq('id', editingMilestone.id);
+      await api.update('milestones', wsId, editingMilestone.id, { title: msForm.title, date: msForm.date });
     } else {
-      await supabase.from('milestones').insert({ title: msForm.title, date: msForm.date, project_id: project!.id, user_id: user!.id });
+      await api.insert('milestones', wsId, { title: msForm.title, date: msForm.date, project_id: project.id });
     }
     setMilestoneDialog(false); setMsForm({ title: '', date: '' }); setEditingMilestone(null); reload();
   };
 
   const handleEditMilestone = (ms: Milestone) => { setEditingMilestone(ms); setMsForm({ title: ms.title, date: ms.date }); setMilestoneDialog(true); };
   const handleDeleteMilestone = (id: string) => setDeleteMilestoneConfirm({ open: true, msId: id });
-  const confirmDeleteMilestone = async () => { if (!deleteMilestoneConfirm.msId) return; await supabase.from('milestones').delete().eq('id', deleteMilestoneConfirm.msId); setDeleteMilestoneConfirm({ open: false, msId: null }); reload(); };
-  const toggleMilestone = async (ms: Milestone) => { await supabase.from('milestones').update({ is_completed: !ms.is_completed }).eq('id', ms.id); reload(); };
+  const confirmDeleteMilestone = async () => { if (!deleteMilestoneConfirm.msId || !wsId) return; await api.remove('milestones', wsId, deleteMilestoneConfirm.msId); setDeleteMilestoneConfirm({ open: false, msId: null }); reload(); };
+  const toggleMilestone = async (ms: Milestone) => { if (!wsId) return; await api.update('milestones', wsId, ms.id, { is_completed: !ms.is_completed }); reload(); };
 
   const addResource = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingResource) { await supabase.from('resources').update({ title: resForm.title, url: resForm.url || null, type: resForm.type }).eq('id', editingResource.id); }
-    else { await supabase.from('resources').insert({ title: resForm.title, url: resForm.url || null, type: resForm.type, project_id: project!.id, user_id: user!.id }); }
+    if (!wsId || !project) return;
+    if (editingResource) { await api.update('resources', wsId, editingResource.id, { title: resForm.title, url: resForm.url || null, type: resForm.type }); }
+    else { await api.insert('resources', wsId, { title: resForm.title, url: resForm.url || null, type: resForm.type, project_id: project.id }); }
     setResourceDialog(false); setResForm({ title: '', url: '', type: 'link' }); setEditingResource(null); reload();
   };
   const handleEditResource = (res: Resource) => { setEditingResource(res); setResForm({ title: res.title, url: res.url || '', type: res.type }); setResourceDialog(true); };
   const handleDeleteResource = (id: string) => setDeleteResourceConfirm({ open: true, resId: id });
-  const confirmDeleteResource = async () => { if (!deleteResourceConfirm.resId) return; await supabase.from('resources').delete().eq('id', deleteResourceConfirm.resId); setDeleteResourceConfirm({ open: false, resId: null }); reload(); };
+  const confirmDeleteResource = async () => { if (!deleteResourceConfirm.resId || !wsId) return; await api.remove('resources', wsId, deleteResourceConfirm.resId); setDeleteResourceConfirm({ open: false, resId: null }); reload(); };
+
+  const openNewMeeting = () => {
+    setEditingMeeting(null);
+    setMeetForm({ title: '', scheduled_at: '', attendees: '' });
+    setMeetingDraftId(crypto.randomUUID());
+    setPendingAgenda(null);
+    setMeetingDialog(true);
+  };
 
   const addMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingMeeting) { await supabase.from('meetings').update({ title: meetForm.title, scheduled_at: meetForm.scheduled_at, attendees: meetForm.attendees || null, agenda_html: meetForm.agenda ? `<p>${meetForm.agenda}</p>` : null }).eq('id', editingMeeting.id); }
-    else { await supabase.from('meetings').insert({ title: meetForm.title, scheduled_at: meetForm.scheduled_at, attendees: meetForm.attendees || null, agenda_html: meetForm.agenda ? `<p>${meetForm.agenda}</p>` : null, project_id: project!.id, user_id: user!.id }); }
-    setMeetingDialog(false); setMeetForm({ title: '', scheduled_at: '', attendees: '', agenda: '' }); setEditingMeeting(null); reload();
+    if (!wsId || !project) return;
+    const agenda_json = pendingAgenda?.blocks ?? (editingMeeting?.agenda_json ?? legacyTextToBlocks(editingMeeting?.agenda_html));
+    const agenda_text = pendingAgenda?.text ?? editingMeeting?.agenda_text ?? '';
+    if (editingMeeting) { await api.update('meetings', wsId, editingMeeting.id, { title: meetForm.title, scheduled_at: meetForm.scheduled_at, attendees: meetForm.attendees || null, agenda_json, agenda_text }); }
+    else { await api.insert('meetings', wsId, { id: meetingDraftId, title: meetForm.title, scheduled_at: meetForm.scheduled_at, attendees: meetForm.attendees || null, agenda_json, agenda_text, project_id: project.id }); }
+    setMeetingDialog(false); setMeetForm({ title: '', scheduled_at: '', attendees: '' }); setEditingMeeting(null); setPendingAgenda(null); reload();
   };
-  const handleEditMeeting = (meet: Meeting) => { setEditingMeeting(meet); setMeetForm({ title: meet.title, scheduled_at: meet.scheduled_at, attendees: meet.attendees || '', agenda: meet.agenda_html?.replace(/<[^>]*>/g, '') || '' }); setMeetingDialog(true); };
+  const handleEditMeeting = (meet: Meeting) => { setEditingMeeting(meet); setMeetForm({ title: meet.title, scheduled_at: meet.scheduled_at, attendees: meet.attendees || '' }); setMeetingDraftId(meet.id); setPendingAgenda(null); setMeetingDialog(true); };
   const handleDeleteMeeting = (id: string) => setDeleteMeetingConfirm({ open: true, meetId: id });
-  const confirmDeleteMeeting = async () => { if (!deleteMeetingConfirm.meetId) return; await supabase.from('meetings').delete().eq('id', deleteMeetingConfirm.meetId); setDeleteMeetingConfirm({ open: false, meetId: null }); reload(); };
+  const confirmDeleteMeeting = async () => { if (!deleteMeetingConfirm.meetId || !wsId) return; await api.remove('meetings', wsId, deleteMeetingConfirm.meetId); setDeleteMeetingConfirm({ open: false, meetId: null }); reload(); };
 
-  const addDiscussion = async () => {
-    if (!discussionText.trim()) return;
-    if (editingDiscussion) {
-      await supabase.from('discussions').update({ body_html: `<p>${discussionText}</p>` }).eq('id', editingDiscussion.id);
-      setEditingDiscussion(null);
-    } else {
-      await supabase.from('discussions').insert({ body_html: `<p>${discussionText}</p>`, author: user!.email!, author_type: 'owner', project_id: project!.id, user_id: user!.id });
-    }
-    setDiscussionText(''); reload();
-  };
-  const togglePin = async (d: Discussion) => { await supabase.from('discussions').update({ is_pinned: !d.is_pinned }).eq('id', d.id); reload(); };
-  const handleDeleteDiscussion = (id: string) => setDeleteDiscussionConfirm({ open: true, discId: id });
-  const confirmDeleteDiscussion = async () => { if (!deleteDiscussionConfirm.discId) return; await supabase.from('discussions').delete().eq('id', deleteDiscussionConfirm.discId); setDeleteDiscussionConfirm({ open: false, discId: null }); reload(); };
-  const handleEditDiscussion = (d: Discussion) => { setEditingDiscussion(d); setDiscussionText(d.body_html.replace(/<[^>]*>/g, '')); };
-
-  const toggleReaction = async (discussionId: string, emoji: string) => {
-    if (!user) return;
-    const existing = reactions[discussionId]?.find(r => r.emoji === emoji && r.reacted);
-    if (existing) {
-      await supabase.from('discussion_reactions').delete().eq('discussion_id', discussionId).eq('user_identifier', user.id).eq('emoji', emoji);
-    } else {
-      await supabase.from('discussion_reactions').insert({ discussion_id: discussionId, user_identifier: user.id, emoji });
-    }
-    reload();
-  };
-
-  const updateStatusNote = async () => { if (!project) return; await supabase.from('projects').update({ status_note: statusNote || null }).eq('id', project.id); toast({ title: 'Status note updated' }); };
-  const updateCollabPassword = async () => { if (!project) return; await supabase.from('projects').update({ collab_password_hash: newPassword || null }).eq('id', project.id); setNewPassword(''); toast({ title: newPassword ? 'Password updated' : 'Access removed' }); };
-  const copyCollabLink = () => { if (!project?.slug) return; navigator.clipboard.writeText(`${window.location.origin}/collab/${project.slug}`); toast({ title: 'Link copied!' }); };
-
-  const inviteCollaborator = async () => {
-    if (!inviteEmail.trim() || !project) return;
-    await supabase.from('project_collaborators').insert({ project_id: project.id, email: inviteEmail.trim().toLowerCase(), role: inviteRole });
-    toast({ title: `Invited ${inviteEmail} as ${inviteRole}` });
-    setInviteEmail(''); reload();
-  };
-  const removeCollaborator = async (collabId: string) => {
-    await supabase.from('project_collaborators').delete().eq('id', collabId);
-    toast({ title: 'Collaborator removed' }); reload();
-  };
+  const updateStatusNote = async () => { if (!project || !wsId) return; await api.update('projects', wsId, project.id, { status_note: statusNote || null }); toast({ title: 'Status note updated' }); };
 
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
   if (!project) return <div className="animate-fade-in space-y-4"><p className="text-muted-foreground">Project not found.</p><Button variant="outline" asChild><Link to="/projects">Back</Link></Button></div>;
@@ -250,36 +208,41 @@ export default function ProjectDetail() {
   const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
   const nextMeeting = meetings.find(m => new Date(m.scheduled_at) > new Date());
 
-  const getNextStatus = (s: string) => { const map: Record<string, string> = { todo: 'in_progress', in_progress: 'done', blocked: 'in_progress' }; return map[s]; };
-
   return (
-    <div className="animate-fade-in space-y-4 sm:space-y-6 max-w-[1200px]">
+    <div className="animate-fade-in space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <Button variant="ghost" size="icon" asChild><Link to="/projects"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div className="h-4 w-1 rounded" style={{ backgroundColor: project.color }} />
-          <h1 className="text-lg sm:text-2xl font-semibold text-foreground">{project.name}</h1>
-          <Badge className={`capitalize ${statusColors[project.status] || 'bg-muted text-muted-foreground'}`}>{project.status.replace('_', ' ')}</Badge>
-          {project.type && <Badge variant="outline" className="capitalize text-xs">{project.type.replace('_', ' ')}</Badge>}
-        </div>
-        {project.tags?.length > 0 && <div className="flex gap-1 flex-wrap pl-0 sm:pl-12">{project.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px] sm:text-xs">{t}</Badge>)}</div>}
-        <div className="flex flex-wrap items-center gap-3 sm:gap-6 pl-0 sm:pl-12 text-xs text-muted-foreground">
-          <span>{doneTasks}/{totalTasks} tasks</span>
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 w-24 sm:w-32 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
-            <span>{pct}%</span>
+      <div className="overflow-hidden rounded-xl border border-border">
+        <div className="h-1.5 w-full" style={{ backgroundColor: project.color }} />
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <Button variant="ghost" size="icon" className="shrink-0" asChild><Link to="/projects"><ArrowLeft className="h-4 w-4" /></Link></Button>
+            <h1 className="text-lg sm:text-2xl font-semibold text-foreground">{project.name}</h1>
+            <Badge className={`capitalize ${statusColors[project.status] || 'bg-muted text-muted-foreground'}`}>{project.status.replace('_', ' ')}</Badge>
+            {project.type && <Badge variant="outline" className="capitalize text-xs">{project.type.replace('_', ' ')}</Badge>}
+            {project.tags?.length > 0 && project.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px] sm:text-xs">{t}</Badge>)}
           </div>
-          {project.repo_url && <a href={project.repo_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary">Repository ↗</a>}
-          <span>{collaborators.length} collaborator{collaborators.length !== 1 ? 's' : ''}</span>
-          <span>{resources.length} resources</span>
-        </div>
-        {project.start_date && (
-          <div className="flex gap-4 pl-0 sm:pl-12 text-xs text-muted-foreground">
-            <span>Started: {format(new Date(project.start_date), 'MMM d, yyyy')}</span>
-            {project.target_end_date && <span>Target: {format(new Date(project.target_end_date), 'MMM d, yyyy')}</span>}
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pl-0 sm:pl-12 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0">{doneTasks}/{totalTasks} tasks</span>
+              <div className="h-1.5 w-24 sm:w-32 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
+              <span>{pct}%</span>
+            </div>
+            <span className="flex items-center gap-1.5"><LinkIcon className="h-3 w-3" />{resources.length} {resources.length === 1 ? 'resource' : 'resources'}</span>
+            {project.repo_url && (
+              <a href={project.repo_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-primary">
+                <GitBranch className="h-3 w-3" />Repository <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            {project.start_date && (
+              <span className="flex items-center gap-1.5">
+                <CalendarClock className="h-3 w-3" />
+                {format(new Date(project.start_date), 'MMM d')}
+                {project.target_end_date && ` – ${format(new Date(project.target_end_date), 'MMM d, yyyy')}`}
+              </span>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
@@ -290,29 +253,79 @@ export default function ProjectDetail() {
           <TabsTrigger value="resources" className="text-xs sm:text-sm"><LinkIcon className="mr-1 h-3 w-3" />Resources</TabsTrigger>
           <TabsTrigger value="discussions" className="text-xs sm:text-sm"><MessageSquare className="mr-1 h-3 w-3" />Discussions</TabsTrigger>
           <TabsTrigger value="meetings" className="text-xs sm:text-sm"><Calendar className="mr-1 h-3 w-3" />Meetings</TabsTrigger>
-          <TabsTrigger value="collaborators" className="text-xs sm:text-sm"><Users className="mr-1 h-3 w-3" />Collaborators</TabsTrigger>
+          <TabsTrigger value="collaborators" className="text-xs sm:text-sm"><Users className="mr-1 h-3 w-3" />Access</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
-        <TabsContent value="overview" className="space-y-4">
-          {project.description && <Card><CardContent className="p-4 sm:p-5"><p className="text-sm text-foreground whitespace-pre-wrap">{project.description}</p></CardContent></Card>}
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Current Status Note</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <Textarea value={statusNote} onChange={e => setStatusNote(e.target.value)} placeholder="What are you working on right now?" rows={2} />
-              <Button size="sm" onClick={updateStatusNote}>Save</Button>
-            </CardContent>
-          </Card>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
-            <Card><CardContent className="p-3 sm:p-4 text-center"><p className="text-xl sm:text-2xl font-semibold text-foreground">{doneTasks}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Completed</p></CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4 text-center"><p className="text-xl sm:text-2xl font-semibold text-foreground">{totalTasks - doneTasks}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Remaining</p></CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4 text-center"><p className="text-xl sm:text-2xl font-semibold text-foreground">{milestones.filter(m => !m.is_completed).length}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Milestones</p></CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4 text-center"><p className="text-xl sm:text-2xl font-semibold text-foreground">{resources.length}</p><p className="text-[10px] sm:text-xs text-muted-foreground">Resources</p></CardContent></Card>
+        <TabsContent value="overview" className="animate-fade-in">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {/* Main column */}
+            <div className="space-y-4 lg:col-span-2">
+              {project.description && <Card><CardContent className="p-4 sm:p-5"><p className="text-sm text-foreground whitespace-pre-wrap">{project.description}</p></CardContent></Card>}
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Current Status Note</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  <Textarea value={statusNote} onChange={e => setStatusNote(e.target.value)} placeholder="What are you working on right now?" rows={2} />
+                  <Button size="sm" onClick={updateStatusNote}>Save</Button>
+                </CardContent>
+              </Card>
+              {wsId && <ActivityFeed workspaceId={wsId} projectId={project.id} members={members} />}
+            </div>
+
+            {/* Side column */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Completed', value: doneTasks, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+                  { label: 'Remaining', value: totalTasks - doneTasks, icon: Circle, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                  { label: 'Milestones', value: milestones.filter(m => !m.is_completed).length, icon: Flag, color: 'text-accent', bg: 'bg-accent/10' },
+                  { label: 'Resources', value: resources.length, icon: LinkIcon, color: 'text-primary', bg: 'bg-primary/10' },
+                ].map(({ label, value, icon: Icon, color, bg }, index) => (
+                  <Card key={label} className="animate-scale-in overflow-hidden" style={{ animationDelay: `${index * 40}ms` }}>
+                    <CardContent className="flex flex-col items-center gap-2 p-3 sm:p-4 text-center">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bg}`}><Icon className={`h-4 w-4 ${color}`} /></div>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{value}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">{label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {(milestones.find(m => !m.is_completed && new Date(m.date) >= new Date()) || nextMeeting) && (
+                <Card>
+                  <CardContent className="space-y-3 p-4">
+                    {(() => {
+                      const nextMs = milestones.find(m => !m.is_completed && new Date(m.date) >= new Date());
+                      return nextMs && (
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10"><Flag className="h-4 w-4 text-accent" /></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] text-muted-foreground">Next Milestone</p>
+                            <p className="truncate text-sm font-medium text-foreground">{nextMs.title}</p>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">{format(new Date(nextMs.date), 'MMM d')}</span>
+                        </div>
+                      );
+                    })()}
+                    {nextMeeting && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"><Calendar className="h-4 w-4 text-primary" /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-muted-foreground">Next Meeting</p>
+                          <p className="truncate text-sm font-medium text-foreground">{nextMeeting.title}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">{format(new Date(nextMeeting.scheduled_at), 'MMM d, h:mm a')}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </TabsContent>
 
         {/* Tasks */}
-        <TabsContent value="tasks" className="space-y-4">
+        <TabsContent value="tasks" className="space-y-4 animate-fade-in">
           <div className="flex justify-end">
             <Dialog open={taskDialog} onOpenChange={v => { setTaskDialog(v); if (!v) { setEditingTask(null); setTaskForm({ title: '', priority: 'medium', due_date: '', due_time: '', time_estimate_min: '', status: 'todo' }); } }}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Task</Button></DialogTrigger>
@@ -369,14 +382,14 @@ export default function ProjectDetail() {
                         {task.due_time && <span>· {task.due_time}</span>}
                       </span>
                     )}
-                    {/* Status transition button */}
-                    {getNextStatus(task.status) && (
-                      <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => moveTaskStatus(task, getNextStatus(task.status)!)}>
-                        <ArrowRight className="h-3 w-3 mr-0.5" />
-                        {taskStatusLabels[getNextStatus(task.status)!]?.substring(0, 8)}
-                      </Button>
-                    )}
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Revealed on hover to keep the resting row uncluttered */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {getNextStatus(task.status) && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] whitespace-nowrap" onClick={() => moveTaskStatus(task, getNextStatus(task.status)!)}>
+                          <ArrowRight className="h-3 w-3 mr-1" />
+                          {taskStatusLabels[getNextStatus(task.status)!]}
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditTask(task)}><Edit2 className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteTask(task.id)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
@@ -394,10 +407,11 @@ export default function ProjectDetail() {
             }
             return <div key={status}><h3 className="mb-2 text-xs font-medium uppercase text-muted-foreground">{taskStatusLabels[status]} ({statusTasks.length})</h3>{content}</div>;
           })}
+          {tasks.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No tasks yet</p>}
         </TabsContent>
 
         {/* Milestones */}
-        <TabsContent value="milestones" className="space-y-4">
+        <TabsContent value="milestones" className="space-y-4 animate-fade-in">
           <div className="flex justify-end">
             <Dialog open={milestoneDialog} onOpenChange={setMilestoneDialog}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Milestone</Button></DialogTrigger>
@@ -432,10 +446,11 @@ export default function ProjectDetail() {
               </div>
             </div>
           ))}
+          {milestones.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No milestones yet</p>}
         </TabsContent>
 
         {/* Resources */}
-        <TabsContent value="resources" className="space-y-4">
+        <TabsContent value="resources" className="space-y-4 animate-fade-in">
           <div className="flex justify-end">
             <Dialog open={resourceDialog} onOpenChange={setResourceDialog}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Resource</Button></DialogTrigger>
@@ -458,83 +473,66 @@ export default function ProjectDetail() {
               </DialogContent>
             </Dialog>
           </div>
-          {resources.map(r => (
-            <Card key={r.id} className="group">
-              <CardContent className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
-                <Badge variant="outline" className="text-[10px] sm:text-xs capitalize">{r.type}</Badge>
-                <span className="flex-1 text-xs sm:text-sm text-foreground truncate">{r.title}</span>
-                {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" /></a>}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditResource(r)}><Edit2 className="h-3 w-3" /></Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteResource(r.id)}><Trash2 className="h-3 w-3" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {resources.map((r, index) => (
+              <Card key={r.id} className="group animate-scale-in hover-lift" style={{ animationDelay: `${Math.min(index * 30, 480)}ms` }}>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"><LinkIcon className="h-3.5 w-3.5 text-primary" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
+                    <Badge variant="outline" className="mt-0.5 text-[10px] capitalize">{r.type}</Badge>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {r.url && <Button variant="ghost" size="icon" className="h-7 w-7" asChild><a href={r.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a></Button>}
+                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100" onClick={() => handleEditResource(r)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100" onClick={() => handleDeleteResource(r.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
           {resources.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No resources yet</p>}
         </TabsContent>
 
         {/* Discussions */}
-        <TabsContent value="discussions" className="space-y-4">
-          <div className="flex gap-2">
-            <Textarea value={discussionText} onChange={e => setDiscussionText(e.target.value)} placeholder={editingDiscussion ? 'Edit your message...' : 'Write a discussion entry...'} rows={2} className="flex-1" />
-            <div className="flex flex-col gap-1">
-              <Button onClick={addDiscussion} disabled={!discussionText.trim()} className="shrink-0">{editingDiscussion ? 'Update' : 'Post'}</Button>
-              {editingDiscussion && <Button variant="ghost" size="sm" onClick={() => { setEditingDiscussion(null); setDiscussionText(''); }}>Cancel</Button>}
-            </div>
-          </div>
-          {discussions.map(d => (
-            <Card key={d.id} className={`${d.is_pinned ? 'border-primary/30' : ''} group`}>
-              <CardContent className="p-3 sm:p-4">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  {d.is_pinned && <Pin className="h-3.5 w-3.5 text-primary" />}
-                  <span className="text-xs font-medium text-foreground">{d.author}</span>
-                  <Badge variant="outline" className="text-[10px] capitalize">{d.author_type}</Badge>
-                  <span className="text-[10px] text-muted-foreground">{format(new Date(d.created_at), 'MMM d, h:mm a')}</span>
-                  <div className="flex gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="sm" className="h-6 px-1.5" onClick={() => togglePin(d)}><Pin className="h-3 w-3" /></Button>
-                    {d.user_id === user?.id && <Button variant="ghost" size="sm" className="h-6 px-1.5" onClick={() => handleEditDiscussion(d)}><Edit2 className="h-3 w-3" /></Button>}
-                    {d.user_id === user?.id && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteDiscussion(d.id)}><Trash2 className="h-3 w-3" /></Button>}
-                  </div>
-                </div>
-                <div className="text-xs sm:text-sm text-foreground" dangerouslySetInnerHTML={{ __html: d.body_html }} />
-                {/* Reactions */}
-                <div className="mt-2 flex flex-wrap items-center gap-1">
-                  {(reactions[d.id] || []).map(rx => (
-                    <button key={rx.emoji} onClick={() => toggleReaction(d.id, rx.emoji)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${rx.reacted ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'}`}>
-                      {rx.emoji} <span className="text-muted-foreground">{rx.count}</span>
-                    </button>
-                  ))}
-                  <div className="flex gap-0.5">
-                    {REACTION_EMOJIS.filter(e => !(reactions[d.id] || []).find(r => r.emoji === e)).slice(0, 3).map(emoji => (
-                      <button key={emoji} onClick={() => toggleReaction(d.id, emoji)} className="rounded-full border border-transparent px-1 py-0.5 text-xs opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity">
-                        {emoji}
-                      </button>
-                    ))}
-                    <button className="rounded-full px-1 py-0.5 text-xs opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity text-muted-foreground" onClick={() => {
-                      const emoji = prompt('Enter emoji:');
-                      if (emoji) toggleReaction(d.id, emoji);
-                    }}><SmilePlus className="h-3.5 w-3.5" /></button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {discussions.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No discussions yet</p>}
+        <TabsContent value="discussions" className="space-y-4 animate-fade-in">
+          {wsId && user && (
+            <CommentsPanel
+              workspaceId={wsId}
+              entityType="project"
+              entityId={project.id}
+              projectId={project.id}
+              currentUserId={user.id}
+              members={members}
+            />
+          )}
         </TabsContent>
 
         {/* Meetings */}
-        <TabsContent value="meetings" className="space-y-4">
+        <TabsContent value="meetings" className="space-y-4 animate-fade-in">
           <div className="flex justify-end">
-            <Dialog open={meetingDialog} onOpenChange={setMeetingDialog}>
-              <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Meeting</Button></DialogTrigger>
+            <Dialog open={meetingDialog} onOpenChange={(o) => { setMeetingDialog(o); if (!o) { setEditingMeeting(null); setPendingAgenda(null); } }}>
+              <DialogTrigger asChild><Button size="sm" onClick={openNewMeeting}><Plus className="mr-1 h-3.5 w-3.5" />Add Meeting</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</DialogTitle></DialogHeader>
                 <form onSubmit={addMeeting} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={meetForm.title} onChange={e => setMeetForm({ ...meetForm, title: e.target.value })} required /></div>
                   <div className="space-y-2"><Label>Date & Time</Label><Input type="datetime-local" value={meetForm.scheduled_at} onChange={e => setMeetForm({ ...meetForm, scheduled_at: e.target.value })} required /></div>
                   <div className="space-y-2"><Label>Attendees</Label><Input value={meetForm.attendees} onChange={e => setMeetForm({ ...meetForm, attendees: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>Agenda</Label><Textarea value={meetForm.agenda} onChange={e => setMeetForm({ ...meetForm, agenda: e.target.value })} rows={3} /></div>
+                  <div className="space-y-2">
+                    <Label>Agenda</Label>
+                    {wsId && meetingDraftId && (
+                      <BlockEditor
+                        key={meetingDraftId}
+                        content={editingMeeting?.agenda_json ?? legacyTextToBlocks(editingMeeting?.agenda_html)}
+                        onChange={(blocks, text) => setPendingAgenda({ blocks, text })}
+                        workspaceId={wsId}
+                        entityType="meetings"
+                        entityId={meetingDraftId}
+                        className="min-h-[140px] rounded-md border border-border"
+                      />
+                    )}
+                  </div>
                   <Button type="submit" className="w-full">{editingMeeting ? 'Update' : 'Add'}</Button>
                 </form>
               </DialogContent>
@@ -564,8 +562,19 @@ export default function ProjectDetail() {
                   </div>
                 </div>
                 {m.attendees && <p className="text-[10px] sm:text-xs text-muted-foreground">With: {m.attendees}</p>}
-                {m.agenda_html && <div className="text-[10px] sm:text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: m.agenda_html }} />}
-                {m.notes_html && <div className="mt-2 rounded bg-muted/50 p-2 sm:p-3 text-[10px] sm:text-xs text-foreground" dangerouslySetInnerHTML={{ __html: m.notes_html }} />}
+                {wsId && (m.agenda_json || m.agenda_html) && (
+                  <BlockEditor
+                    key={m.id}
+                    content={m.agenda_json ?? legacyTextToBlocks(m.agenda_html)}
+                    onChange={() => {}}
+                    editable={false}
+                    workspaceId={wsId}
+                    entityType="meetings"
+                    entityId={m.id}
+                    className="text-[10px] sm:text-xs text-muted-foreground"
+                  />
+                )}
+                {m.notes_text && <div className="mt-2 rounded bg-muted/50 p-2 sm:p-3 text-[10px] sm:text-xs text-foreground whitespace-pre-wrap">{m.notes_text}</div>}
                 {m.action_items && <p className="text-[10px] sm:text-xs text-primary">Action: {m.action_items}</p>}
               </CardContent>
             </Card>
@@ -573,87 +582,19 @@ export default function ProjectDetail() {
           {meetings.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No meetings yet</p>}
         </TabsContent>
 
-        {/* Collaborators */}
-        <TabsContent value="collaborators" className="space-y-4">
-          {/* Invite */}
+        {/* Access — per-project guest scoping is being rebuilt (Stage 5); for
+            now this points to workspace-level Team management. */}
+        <TabsContent value="collaborators" className="space-y-4 animate-fade-in">
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><UserPlus className="h-4 w-4" />Invite Collaborator</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4" />Workspace Team</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="collaborator@email.com" className="flex-1" />
-                <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {['viewer', 'commenter', 'editor', 'admin'].map(r => <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button onClick={inviteCollaborator} disabled={!inviteEmail.trim()}><UserPlus className="mr-1 h-3.5 w-3.5" />Invite</Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Invited collaborators can access this project by logging in with their email.</p>
+              <p className="text-sm text-muted-foreground">
+                Everyone in this workspace already has access to this project. Invite teammates or manage roles from the{' '}
+                <Link to="/team" className="text-primary underline underline-offset-2">Team page</Link>.
+              </p>
+              <p className="text-xs text-muted-foreground">Per-project guest access (view-only or comment-only collaborators scoped to just this project) is coming soon.</p>
             </CardContent>
           </Card>
-
-          {/* Collaborator list */}
-          {collaborators.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Invited Collaborators ({collaborators.length})</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {collaborators.map(c => (
-                  <div key={c.id} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border p-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-foreground">{c.email}</span>
-                      <Badge variant="secondary" className="text-[10px] capitalize">{c.role}</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Invited {format(new Date(c.invited_at), 'MMM d')}</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeCollaborator(c.id)}><Trash2 className="h-3 w-3" /></Button>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Password access */}
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Password Access (Legacy)</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {project.slug && (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <code className="flex-1 rounded bg-muted px-3 py-2 text-xs font-mono text-foreground break-all">{window.location.origin}/collab/{project.slug}</code>
-                  <Button variant="outline" size="sm" onClick={copyCollabLink}><Copy className="mr-1 h-3.5 w-3.5" />Copy</Button>
-                </div>
-              )}
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <div className="flex-1 space-y-2">
-                  <Label className="text-xs">Change/Set Password</Label>
-                  <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={project.collab_password_hash ? 'Enter new password...' : 'Set a password'} />
-                </div>
-                <Button size="sm" onClick={updateCollabPassword}>{project.collab_password_hash ? 'Update' : 'Set'}</Button>
-              </div>
-              {project.collab_password_hash && <p className="text-xs text-success">✓ Password access enabled</p>}
-            </CardContent>
-          </Card>
-
-          {/* Active sessions */}
-          {collabSessions.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Recent Access ({collabSessions.length})</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {collabSessions.map(cs => (
-                  <div key={cs.id} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border p-3">
-                    <span className="text-sm text-foreground">{cs.email}</span>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>Last: {format(new Date(cs.last_access_at), 'MMM d, h:mm a')}</span>
-                      <Badge variant={new Date(cs.expires_at) > new Date() ? 'secondary' : 'destructive'} className="text-[10px]">
-                        {new Date(cs.expires_at) > new Date() ? 'Active' : 'Expired'}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
 
@@ -661,7 +602,6 @@ export default function ProjectDetail() {
       <ConfirmDialog open={deleteTaskConfirm.open} onOpenChange={(o) => setDeleteTaskConfirm({ ...deleteTaskConfirm, open: o })} title="Delete Task" description="Delete this task permanently?" onConfirm={confirmDeleteTask} variant="destructive" />
       <ConfirmDialog open={deleteMilestoneConfirm.open} onOpenChange={(o) => setDeleteMilestoneConfirm({ ...deleteMilestoneConfirm, open: o })} title="Delete Milestone" description="Delete this milestone?" onConfirm={confirmDeleteMilestone} variant="destructive" />
       <ConfirmDialog open={deleteResourceConfirm.open} onOpenChange={(o) => setDeleteResourceConfirm({ ...deleteResourceConfirm, open: o })} title="Delete Resource" description="Delete this resource?" onConfirm={confirmDeleteResource} variant="destructive" />
-      <ConfirmDialog open={deleteDiscussionConfirm.open} onOpenChange={(o) => setDeleteDiscussionConfirm({ ...deleteDiscussionConfirm, open: o })} title="Delete Discussion" description="Delete this discussion?" onConfirm={confirmDeleteDiscussion} variant="destructive" />
       <ConfirmDialog open={deleteMeetingConfirm.open} onOpenChange={(o) => setDeleteMeetingConfirm({ ...deleteMeetingConfirm, open: o })} title="Delete Meeting" description="Delete this meeting?" onConfirm={confirmDeleteMeeting} variant="destructive" />
     </div>
   );

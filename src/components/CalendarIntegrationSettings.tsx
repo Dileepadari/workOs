@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,7 @@ interface Integration {
 }
 
 export function CalendarIntegrationSettings() {
-  const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,13 +38,13 @@ export function CalendarIntegrationSettings() {
 
   useEffect(() => {
     loadIntegrations();
-  }, [user?.id]);
+  }, [currentWorkspace?.id]);
 
   const loadIntegrations = async () => {
-    if (!user?.id) return;
+    if (!currentWorkspace) return;
     setLoading(true);
     try {
-      const data = await getCalendarIntegrations(user.id);
+      const data = await getCalendarIntegrations(currentWorkspace.id);
       setIntegrations(data as Integration[]);
     } catch (error) {
       toast({
@@ -56,7 +56,7 @@ export function CalendarIntegrationSettings() {
   };
 
   const handleSave = async (provider: 'google' | 'outlook', url: string) => {
-    if (!user?.id || !url.trim()) {
+    if (!currentWorkspace || !url.trim()) {
       toast({
         title: 'Please enter a valid ICS URL',
         variant: 'destructive',
@@ -65,7 +65,7 @@ export function CalendarIntegrationSettings() {
     }
 
     try {
-      await saveCalendarIntegration(user.id, provider, url.trim());
+      await saveCalendarIntegration(currentWorkspace.id, provider, url.trim());
       await loadIntegrations();
       setEditingId(null);
       toast({ title: 'Calendar integration saved!' });
@@ -87,10 +87,11 @@ export function CalendarIntegrationSettings() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!currentWorkspace) return;
     if (!confirm('Are you sure you want to remove this calendar integration?')) return;
 
     try {
-      await deleteCalendarIntegration(id);
+      await deleteCalendarIntegration(currentWorkspace.id, id);
       await loadIntegrations();
       toast({ title: 'Integration removed' });
     } catch (error) {
@@ -102,8 +103,9 @@ export function CalendarIntegrationSettings() {
   };
 
   const handleToggleSync = async (id: string, enabled: boolean) => {
+    if (!currentWorkspace) return;
     try {
-      await toggleCalendarSync(id, !enabled);
+      await toggleCalendarSync(currentWorkspace.id, id, !enabled);
       await loadIntegrations();
     } catch (error) {
       toast({
@@ -114,11 +116,11 @@ export function CalendarIntegrationSettings() {
   };
 
   const handleManualSync = async (provider: 'google' | 'outlook', icsUrl: string) => {
-    if (!user?.id) return;
+    if (!currentWorkspace) return;
 
     setSyncing(provider);
     try {
-      const result = await syncCalendarEvents(provider, icsUrl, user.id);
+      const result = await syncCalendarEvents(provider, icsUrl, currentWorkspace.id);
 
       if (result.errors.length > 0) {
         toast({
@@ -205,8 +207,9 @@ export function CalendarIntegrationSettings() {
                 >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">
-                        {integration.provider === 'google' ? '🔵 Google' : '🟢 Outlook'}
+                      <Badge variant="outline" className="gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${integration.provider === 'google' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                        {integration.provider === 'google' ? 'Google' : 'Outlook'}
                       </Badge>
                       <Badge variant={integration.sync_enabled ? 'default' : 'secondary'}>
                         {integration.sync_enabled ? 'Active' : 'Inactive'}
@@ -405,7 +408,7 @@ export function CalendarIntegrationSettings() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900 dark:border-amber-900 dark:bg-amber-950">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
                 <div className="flex gap-2">
                   <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                   <div>
@@ -419,7 +422,7 @@ export function CalendarIntegrationSettings() {
         </div>
 
         {/* Info Box */}
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-[12px] text-blue-900 dark:border-blue-900 dark:bg-blue-950">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-[12px] text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
           <p className="font-semibold mb-1">How it works</p>
           <ul className="list-inside list-disc space-y-1">
             <li>Add your Google Calendar or Outlook ICS feed URL</li>

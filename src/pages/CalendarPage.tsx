@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -125,10 +126,11 @@ function generateOutlookLink(ev: CalEvent): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadingRef = useRef(false); // Prevent concurrent loadEvents calls
-  const lastLoadUserRef = useRef<string | null>(null); // Track last loaded user
+  const lastLoadKeyRef = useRef<string | null>(null); // Track last loaded user+workspace
   const [current, setCurrent] = useState(new Date());
   const [view, setView] = useState<ViewMode>('month');
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -143,38 +145,40 @@ export default function CalendarPage() {
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('workos_last_sync'));
 
   const loadEvents = useCallback(async () => {
-    if (!user || loadingRef.current) return; // Skip if already loading
-    
+    if (!user || !currentWorkspace || loadingRef.current) return; // Skip if already loading
+    const wsId = currentWorkspace.id;
+
     loadingRef.current = true;
     try {
-      const [tasksRes, msRes, meetRes, projRes, syncedRes, eventsRes] = await Promise.all([
-      supabase.from('tasks').select('id, title, due_date, due_time, priority, project_id, status, time_estimate_min, description').eq('user_id', user.id).not('due_date', 'is', null),
-      supabase.from('milestones').select('id, title, date, is_completed, project_id').eq('user_id', user.id),
-      supabase.from('meetings').select('id, title, scheduled_at, attendees, agenda_html, notes_html, action_items, project_id').eq('user_id', user.id),
-      supabase.from('projects').select('id, name').eq('user_id', user.id),
-      supabase.from('synced_events').select('*').eq('user_id', user.id),
-      supabase.from('events').select('id, title, scheduled_at, description, color, project_id').eq('user_id', user.id),
+      const [allTasks, allMilestones, allMeetings, allProjects, syncedEvents, allEvents] = await Promise.all([
+      api.select<any>('tasks', wsId),
+      api.select<any>('milestones', wsId),
+      api.select<any>('meetings', wsId),
+      api.select<{ id: string; name: string }>('projects', wsId),
+      api.select<any>('synced_events', wsId),
+      api.select<any>('events', wsId),
     ]);
-    setProjects(projRes.data ?? []);
+    const tasks = allTasks.filter((t: any) => t.due_date != null);
+    setProjects(allProjects ?? []);
     const items: CalEvent[] = [];
-    (tasksRes.data ?? []).forEach(t => {
+    tasks.forEach((t: any) => {
       if (t.due_date) {
         const d = t.due_time ? new Date(`${t.due_date}T${t.due_time}`) : new Date(t.due_date);
         items.push({ id: `t-${t.id}`, realId: t.id, title: t.title, date: d, type: 'task', meta: t.priority, rawData: t });
       }
     });
-    (msRes.data ?? []).forEach(m => {
+    allMilestones.forEach((m: any) => {
       items.push({ id: `m-${m.id}`, realId: m.id, title: m.title, date: new Date(m.date), type: 'milestone', meta: m.is_completed ? 'done' : 'pending', rawData: m });
     });
-    (meetRes.data ?? []).forEach(m => {
+    allMeetings.forEach((m: any) => {
       items.push({ id: `mt-${m.id}`, realId: m.id, title: m.title, date: new Date(m.scheduled_at), type: 'meeting', rawData: m });
     });
     // Add general events
-    (eventsRes.data ?? []).forEach(e => {
+    allEvents.forEach((e: any) => {
       items.push({ id: `e-${e.id}`, realId: e.id, title: e.title, date: new Date(e.scheduled_at), type: 'event', meta: e.color || '#3b82f6', rawData: e });
     });
     // Add synced events from external calendars
-    (syncedRes.data ?? []).forEach((s: any) => {
+    syncedEvents.forEach((s: any) => {
       items.push({
         id: `sync-${s.id}`,
         realId: s.id,
@@ -190,15 +194,18 @@ export default function CalendarPage() {
     } finally {
       loadingRef.current = false; // Allow next load
     }
-  }, [user]);
+  }, [user, currentWorkspace]);
 
   useEffect(() => {
-    // Only load if user changed to a different user
-    if (user && lastLoadUserRef.current !== user.id) {
-      lastLoadUserRef.current = user.id;
-      loadEvents();
+    // Only load if user or workspace changed
+    if (user && currentWorkspace) {
+      const key = `${user.id}:${currentWorkspace.id}`;
+      if (lastLoadKeyRef.current !== key) {
+        lastLoadKeyRef.current = key;
+        loadEvents();
+      }
     }
-  }, [loadEvents, user]);
+  }, [loadEvents, user, currentWorkspace]);
 
   // Auto-sync on page load if last sync > 24h
   useEffect(() => {
@@ -214,13 +221,14 @@ export default function CalendarPage() {
     setSyncing(true);
     try {
       // First, sync external calendar integrations
-      if (user?.id) {
-        const integrations = await getCalendarIntegrations(user.id);
+      if (currentWorkspace) {
+        const wsId = currentWorkspace.id;
+        const integrations = await getCalendarIntegrations(wsId);
         const enabledIntegrations = integrations.filter((i: any) => i.sync_enabled);
 
         for (const integration of enabledIntegrations) {
           try {
-            await syncCalendarEvents(integration.provider, integration.ics_url, user.id);
+            await syncCalendarEvents(integration.provider, integration.ics_url, wsId);
           } catch (error) {
             console.error(`Failed to sync ${integration.provider} calendar:`, error);
             // Continue with other integrations even if one fails
@@ -244,7 +252,7 @@ export default function CalendarPage() {
     } finally {
       setSyncing(false);
     }
-  }, [user, toast, loadEvents]);
+  }, [currentWorkspace, toast, loadEvents]);
 
   const navigate = (dir: number) => {
     if (view === 'month') setCurrent(dir > 0 ? addMonths(current, 1) : subMonths(current, 1));
@@ -300,45 +308,46 @@ export default function CalendarPage() {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !currentWorkspace) return;
+    const wsId = currentWorkspace.id;
 
     if (editMode && selectedEvent) {
       if (selectedEvent.type === 'task') {
-        await supabase.from('tasks').update({
+        await api.update('tasks', wsId, selectedEvent.realId, {
           title: eventForm.title, due_date: eventForm.date, due_time: eventForm.time || null,
           project_id: eventForm.project_id || null, description: eventForm.description || null,
-        }).eq('id', selectedEvent.realId);
+        });
       } else if (selectedEvent.type === 'milestone') {
-        await supabase.from('milestones').update({
+        await api.update('milestones', wsId, selectedEvent.realId, {
           title: eventForm.title, date: eventForm.date, project_id: eventForm.project_id || undefined,
-        }).eq('id', selectedEvent.realId);
+        });
       } else if (selectedEvent.type === 'meeting') {
         const scheduledAt = eventForm.time ? `${eventForm.date}T${eventForm.time}` : `${eventForm.date}T09:00`;
-        await supabase.from('meetings').update({
+        await api.update('meetings', wsId, selectedEvent.realId, {
           title: eventForm.title, scheduled_at: scheduledAt,
           project_id: eventForm.project_id || undefined,
           attendees: eventForm.attendees || null,
           agenda_html: eventForm.agenda || null,
-        }).eq('id', selectedEvent.realId);
+        });
       }
       toast({ title: 'Event updated' });
     } else {
       if (eventForm.type === 'task') {
-        await supabase.from('tasks').insert({
+        await api.insert('tasks', wsId, {
           title: eventForm.title, due_date: eventForm.date, due_time: eventForm.time || null,
-          project_id: eventForm.project_id || null, user_id: user.id, status: 'todo', priority: 'medium',
+          project_id: eventForm.project_id || null, status: 'todo', priority: 'medium',
           description: eventForm.description || null,
         });
       } else if (eventForm.type === 'milestone') {
         if (!eventForm.project_id) { toast({ title: 'Select a project for milestone', variant: 'destructive' }); return; }
-        await supabase.from('milestones').insert({
-          title: eventForm.title, date: eventForm.date, project_id: eventForm.project_id, user_id: user.id,
+        await api.insert('milestones', wsId, {
+          title: eventForm.title, date: eventForm.date, project_id: eventForm.project_id,
         });
       } else if (eventForm.type === 'meeting') {
         if (!eventForm.project_id) { toast({ title: 'Select a project for meeting', variant: 'destructive' }); return; }
         const scheduledAt = eventForm.time ? `${eventForm.date}T${eventForm.time}` : `${eventForm.date}T09:00`;
-        await supabase.from('meetings').insert({
-          title: eventForm.title, scheduled_at: scheduledAt, project_id: eventForm.project_id, user_id: user.id,
+        await api.insert('meetings', wsId, {
+          title: eventForm.title, scheduled_at: scheduledAt, project_id: eventForm.project_id,
           attendees: eventForm.attendees || null, agenda_html: eventForm.agenda || null,
         });
       }
@@ -351,9 +360,11 @@ export default function CalendarPage() {
   };
 
   const handleDeleteEvent = async (ev: CalEvent) => {
-    if (ev.type === 'task') await supabase.from('tasks').delete().eq('id', ev.realId);
-    else if (ev.type === 'milestone') await supabase.from('milestones').delete().eq('id', ev.realId);
-    else if (ev.type === 'meeting') await supabase.from('meetings').delete().eq('id', ev.realId);
+    if (!currentWorkspace) return;
+    const wsId = currentWorkspace.id;
+    if (ev.type === 'task') await api.remove('tasks', wsId, ev.realId);
+    else if (ev.type === 'milestone') await api.remove('milestones', wsId, ev.realId);
+    else if (ev.type === 'meeting') await api.remove('meetings', wsId, ev.realId);
     toast({ title: 'Event deleted' });
     setDeleteConfirm(null);
     setSelectedEvent(null);
@@ -375,7 +386,8 @@ export default function CalendarPage() {
 
   // Import ICS file
   const handleImportICS = async (file: File) => {
-    if (!user) return;
+    if (!user || !currentWorkspace) return;
+    const wsId = currentWorkspace.id;
     try {
       const content = await file.text();
       // Use robust RFC 5545 compliant parser from sync.ts
@@ -386,40 +398,31 @@ export default function CalendarPage() {
       }
 
       // Fetch all existing events ONCE upfront (check all event sources)
-      const [tasksRes, meetingsRes, eventsRes] = await Promise.all([
-        supabase
-          .from('tasks')
-          .select('title, due_date, due_time')
-          .eq('user_id', user.id)
-          .not('due_date', 'is', null),
-        supabase
-          .from('meetings')
-          .select('title, scheduled_at')
-          .eq('user_id', user.id),
-        supabase
-          .from('events')
-          .select('title, scheduled_at')
-          .eq('user_id', user.id),
+      const [allTasks, allMeetings, allEvents] = await Promise.all([
+        api.select<{ title: string; due_date: string | null; due_time: string | null }>('tasks', wsId),
+        api.select<{ title: string; scheduled_at: string }>('meetings', wsId),
+        api.select<{ title: string; scheduled_at: string }>('events', wsId),
       ]);
+      const tasks = allTasks.filter(t => t.due_date != null);
 
       const existingTitles = new Set<string>();
-      
+
       // Add existing tasks
-      tasksRes.data?.forEach(t => {
-        const dateStr = t.due_time 
+      tasks.forEach(t => {
+        const dateStr = t.due_time
           ? `${t.due_date}T${t.due_time}`.slice(0, 16)
           : t.due_date;
         existingTitles.add(`${t.title.toLowerCase()}|${dateStr}`);
       });
 
       // Add existing meetings
-      meetingsRes.data?.forEach(m => {
+      allMeetings.forEach(m => {
         const dateStr = new Date(m.scheduled_at).toISOString().slice(0, 16);
         existingTitles.add(`${m.title.toLowerCase()}|${dateStr}`);
       });
 
       // Add existing events
-      eventsRes.data?.forEach(e => {
+      allEvents.forEach(e => {
         const dateStr = new Date(e.scheduled_at).toISOString().slice(0, 16);
         existingTitles.add(`${e.title.toLowerCase()}|${dateStr}`);
       });
@@ -444,42 +447,41 @@ export default function CalendarPage() {
           title: ev.summary,
           scheduled_at: scheduledAt,
           project_id: projects[0]?.id || null,
-          user_id: user.id,
           description: ev.description || null,
           location: ev.location || null,
           color: '#3b82f6',
         });
-        
+
         // Add to existing titles to prevent duplicates within THIS import
         existingTitles.add(key);
       }
 
       // Insert all new events in one batch
       if (eventsToInsert.length > 0) {
-        const { error } = await supabase.from('events').insert(eventsToInsert);
-        if (!error) {
+        try {
+          await api.insert('events', wsId, eventsToInsert);
           imported = eventsToInsert.length;
-        } else {
+        } catch (error) {
           console.error('Error importing events:', error);
-          toast({ 
-            title: 'Import failed', 
-            description: error.message,
+          toast({
+            title: 'Import failed',
+            description: error instanceof Error ? error.message : 'Unknown error',
             variant: 'destructive'
           });
           return;
         }
       }
-      
-      const message = duplicates > 0 
+
+      const message = duplicates > 0
         ? `Imported ${imported} events (${duplicates} duplicates skipped)`
         : `Imported ${imported} events`;
-      
+
       toast({ title: message });
       await loadEvents();
     } catch (error) {
       console.error('Error importing ICS file:', error);
-      toast({ 
-        title: 'Import failed', 
+      toast({
+        title: 'Import failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive'
       });
@@ -753,12 +755,12 @@ export default function CalendarPage() {
               <div className="space-y-2"><Label>Time</Label><Input type="time" value={eventForm.time} onChange={e => setEventForm({ ...eventForm, time: e.target.value })} /></div>
             </div>
             {(eventForm.type === 'task') && (
-              <div className="space-y-2"><Label>Description</Label><Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} rows={2} /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} placeholder="Add details..." rows={2} /></div>
             )}
             {eventForm.type === 'meeting' && (
               <>
                 <div className="space-y-2"><Label>Attendees</Label><Input value={eventForm.attendees} onChange={e => setEventForm({ ...eventForm, attendees: e.target.value })} placeholder="e.g. John, Jane" /></div>
-                <div className="space-y-2"><Label>Agenda</Label><Textarea value={eventForm.agenda} onChange={e => setEventForm({ ...eventForm, agenda: e.target.value })} rows={2} /></div>
+                <div className="space-y-2"><Label>Agenda</Label><Textarea value={eventForm.agenda} onChange={e => setEventForm({ ...eventForm, agenda: e.target.value })} placeholder="What's on the agenda?" rows={2} /></div>
               </>
             )}
             <Button type="submit" className="w-full">{editMode ? 'Save Changes' : 'Add to Calendar'}</Button>

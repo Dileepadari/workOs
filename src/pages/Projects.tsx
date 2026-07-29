@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,24 +14,21 @@ import { Plus, Trash2, Edit2, Search, X, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PROJECT_STATUS_COLORS } from '@/lib/taskMeta';
 
 interface Project {
   id: string; name: string; description: string | null; status: 'active' | 'archived' | 'on_hold';
   color: string; created_at: string; updated_at: string; slug: string | null;
   type: string | null; tags: string[] | null; start_date: string | null; target_end_date: string | null;
-  repo_url: string | null; collab_password_hash: string | null;
+  repo_url: string | null;
 }
 
-const statusColors: Record<string, string> = {
-  active: 'bg-success/20 text-success',
-  on_hold: 'bg-warning/20 text-warning',
-  archived: 'bg-muted text-muted-foreground',
-};
+const statusColors = PROJECT_STATUS_COLORS;
 
 const projectTypes = ['academic', 'open_source', 'personal', 'internship', 'freelance', 'community', 'research'];
 
 export default function Projects() {
-  const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const [projects, setProjects] = useState<Project[]>([]);
   const [taskCounts, setTaskCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [loading, setLoading] = useState(true);
@@ -41,7 +38,7 @@ export default function Projects() {
   const [form, setForm] = useState({
     name: '', description: '', status: 'active' as Project['status'], color: '#2D6A6A',
     type: 'personal', tags: '', slug: '', start_date: '', target_end_date: '',
-    repo_url: '', collab_password: '',
+    repo_url: '',
   });
 
   // Filters
@@ -51,13 +48,16 @@ export default function Projects() {
   const [sortBy, setSortBy] = useState('updated');
 
   const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').order('updated_at', { ascending: false });
-    setProjects(data ?? []);
+    if (!currentWorkspace) return;
+    const wsId = currentWorkspace.id;
+    const data = await api.select<Project>('projects', wsId);
+    const sorted = [...data].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+    setProjects(sorted);
 
     // Get task counts
-    const { data: tasks } = await supabase.from('tasks').select('id, project_id, status');
+    const tasks = await api.select<{ id: string; project_id: string | null; status: string }>('tasks', wsId);
     const counts: Record<string, { done: number; total: number }> = {};
-    (tasks ?? []).forEach(t => {
+    tasks.forEach(t => {
       if (!t.project_id) return;
       if (!counts[t.project_id]) counts[t.project_id] = { done: 0, total: 0 };
       counts[t.project_id].total++;
@@ -67,27 +67,27 @@ export default function Projects() {
     setLoading(false);
   };
 
-  useEffect(() => { if (user) fetchProjects(); }, [user]);
+  useEffect(() => { if (currentWorkspace) fetchProjects(); }, [currentWorkspace?.id]);
 
   const resetForm = () => {
-    setForm({ name: '', description: '', status: 'active', color: '#2D6A6A', type: 'personal', tags: '', slug: '', start_date: '', target_end_date: '', repo_url: '', collab_password: '' });
+    setForm({ name: '', description: '', status: 'active', color: '#2D6A6A', type: 'personal', tags: '', slug: '', start_date: '', target_end_date: '', repo_url: '' });
     setEditingProject(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentWorkspace) return;
     const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const payload = {
       name: form.name, description: form.description || null, status: form.status, color: form.color,
       type: form.type, tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       slug, start_date: form.start_date || null, target_end_date: form.target_end_date || null,
       repo_url: form.repo_url || null,
-      collab_password_hash: form.collab_password || null, // simple storage for now
     };
     if (editingProject) {
-      await supabase.from('projects').update(payload).eq('id', editingProject.id);
+      await api.update('projects', currentWorkspace.id, editingProject.id, payload);
     } else {
-      await supabase.from('projects').insert({ ...payload, user_id: user!.id });
+      await api.insert('projects', currentWorkspace.id, payload);
     }
     setDialogOpen(false);
     resetForm();
@@ -100,7 +100,7 @@ export default function Projects() {
       name: p.name, description: p.description ?? '', status: p.status, color: p.color,
       type: p.type ?? 'personal', tags: (p.tags ?? []).join(', '), slug: p.slug ?? '',
       start_date: p.start_date ?? '', target_end_date: p.target_end_date ?? '',
-      repo_url: p.repo_url ?? '', collab_password: '',
+      repo_url: p.repo_url ?? '',
     });
     setDialogOpen(true);
   };
@@ -110,8 +110,8 @@ export default function Projects() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirm.projectId) return;
-    await supabase.from('projects').delete().eq('id', deleteConfirm.projectId);
+    if (!deleteConfirm.projectId || !currentWorkspace) return;
+    await api.remove('projects', currentWorkspace.id, deleteConfirm.projectId);
     setDeleteConfirm({ open: false, projectId: null });
     fetchProjects();
   };
@@ -139,7 +139,7 @@ export default function Projects() {
       <PageHeader title="Projects" />
 
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{projects.length} projects</p>
+        <p className="text-sm text-muted-foreground">{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Project</Button>
@@ -161,7 +161,7 @@ export default function Projects() {
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
-                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What's this project about?" rows={3} />
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
@@ -186,7 +186,7 @@ export default function Projects() {
                 </div>
                 <div className="space-y-2">
                   <Label>Color</Label>
-                  <Input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-10 cursor-pointer" />
+                  <Input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-10 w-14 cursor-pointer p-1" />
                 </div>
               </div>
               <div className="space-y-2">
@@ -206,11 +206,6 @@ export default function Projects() {
               <div className="space-y-2">
                 <Label>Repository URL</Label>
                 <Input value={form.repo_url} onChange={(e) => setForm({ ...form, repo_url: e.target.value })} placeholder="https://github.com/..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Collaborator Password</Label>
-                <Input type="password" value={form.collab_password} onChange={(e) => setForm({ ...form, collab_password: e.target.value })} placeholder="Leave blank for no collaborator access" />
-                <p className="text-[10px] text-muted-foreground">Set a password to allow collaborators view-only access via /collab/slug</p>
               </div>
               <Button type="submit" className="w-full">{editingProject ? 'Save Changes' : 'Create Project'}</Button>
             </form>
@@ -278,11 +273,11 @@ export default function Projects() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => {
+          {filtered.map((p, index) => {
             const tc = taskCounts[p.id] ?? { done: 0, total: 0 };
             return (
-              <Link key={p.id} to={`/projects/${p.slug || p.id}`}>
-                <Card className="group transition-colors hover:bg-muted/50 h-full">
+              <Link key={p.id} to={`/projects/${p.slug || p.id}`} className="animate-scale-in" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
+                <Card className="group transition-colors hover:bg-muted/50 h-full hover-lift">
                   <CardContent className="p-4 sm:p-6">
                     <div className="mb-4 flex items-start justify-between">
                       <div className="flex items-center gap-3 min-w-0 flex-1">

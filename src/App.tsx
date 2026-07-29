@@ -5,12 +5,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { ColorThemeProvider } from "@/contexts/ColorThemeContext";
 import { SearchProvider, useSearch } from "@/contexts/SearchContext";
 import { AppLayout } from "@/components/AppLayout";
 import { QuickSearch } from "@/components/QuickSearch";
 import Auth from "./pages/Auth";
+import AcceptInvite from "./pages/AcceptInvite";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
@@ -19,12 +20,11 @@ import Notes from "./pages/Notes";
 import Resources from "./pages/Resources";
 import DailyLog from "./pages/DailyLog";
 import SettingsPage from "./pages/SettingsPage";
+import TeamPage from "./pages/TeamPage";
 import CalendarPage from "./pages/CalendarPage";
 import FocusMode from "./pages/FocusMode";
 import WeeklyReview from "./pages/WeeklyReview";
 import TagManager from "./pages/TagManager";
-import CollabMenu from "./pages/CollabMenu";
-import CollabView from "./pages/CollabView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,10 +63,7 @@ function AppRoutes() {
       <SearchDialog />
       <Routes>
         <Route path="/auth" element={<Auth />} />
-        <Route path="/collab" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index element={<CollabMenu />} />
-        </Route>
-        <Route path="/collab/:slug" element={<CollabView />} />
+        <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
@@ -78,6 +75,7 @@ function AppRoutes() {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="focus" element={<FocusMode />} />
           <Route path="review" element={<WeeklyReview />} />
+          <Route path="team" element={<TeamPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/tags" element={<TagManager />} />
         </Route>
@@ -92,17 +90,17 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <ThemeProvider>
-        <ColorThemeProvider>
-          <AuthProvider>
+      <AuthProvider>
+        <WorkspaceProvider>
+          <ThemeProvider>
             <BrowserRouter>
               <SearchProvider>
                 <AppRoutes />
               </SearchProvider>
             </BrowserRouter>
-          </AuthProvider>
-        </ColorThemeProvider>
-      </ThemeProvider>
+          </ThemeProvider>
+        </WorkspaceProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

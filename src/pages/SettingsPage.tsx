@@ -1,33 +1,59 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase';
+import { Input } from '@/components/ui/input';
+import { api, workspaces as workspacesApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Tag, Sun, Moon, Shield, Database } from 'lucide-react';
+import { Download, Tag, Sun, Moon, Shield, Database, Building2, Users } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
 import { CalendarIntegrationSettings } from '@/components/CalendarIntegrationSettings';
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
+  const { currentWorkspace, refresh } = useWorkspace();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const [exporting, setExporting] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState(currentWorkspace?.name ?? '');
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => { setWorkspaceName(currentWorkspace?.name ?? ''); }, [currentWorkspace?.id, currentWorkspace?.name]);
+
+  const canManageWorkspace = currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin';
+
+  const saveWorkspaceName = async () => {
+    if (!currentWorkspace || !workspaceName.trim()) return;
+    setSavingName(true);
+    try {
+      await workspacesApi.rename(currentWorkspace.id, workspaceName.trim());
+      await refresh();
+      toast({ title: 'Workspace renamed' });
+    } catch (err) {
+      toast({ title: 'Failed to rename workspace', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const exportData = async (type: 'all' | 'links' | 'project') => {
+    const wsId = currentWorkspace?.id;
+    if (!wsId) return;
     setExporting(true);
     try {
-      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'discussions', 'meetings', 'links', 'notes', 'daily_log', 'bookmarks'] : ['projects'];
+      // 'bookmarks' dropped from this list — that table was removed in the
+      // multi-tenant rebuild (dead, zero rows); Resources.tsx's links table
+      // is the only "save a URL" store left.
+      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'discussions', 'meetings', 'links', 'notes', 'daily_log'] : ['projects'];
       const allData: Record<string, any[]> = {};
       for (const table of tables) {
-        const { data } = await supabase.from(table as any).select('*');
-        allData[table] = data ?? [];
+        allData[table] = await api.select(table, wsId);
       }
 
       if (type === 'links') {
@@ -58,86 +84,124 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-8">
       <PageHeader title="Settings" />
 
-      {/* Account */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><Shield className="h-4 w-4" />Account</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">Email</p>
-            <p className="text-xs sm:text-sm text-foreground">{user?.email}</p>
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">User ID</p>
-            <p className="font-mono text-[10px] sm:text-xs text-muted-foreground break-all">{user?.id}</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ============ Personal ============ */}
+      <div className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personal</h2>
 
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">{theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}Appearance</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Dark Mode</Label>
-              <p className="text-xs text-muted-foreground">Toggle between light and dark themes</p>
-            </div>
-            <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
-          </div>
-        </CardContent>
-      </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Shield className="h-4 w-4" />Account</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs sm:text-sm text-muted-foreground">Username</p>
+                <p className="text-xs sm:text-sm text-foreground">{user?.username}</p>
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-muted-foreground">User ID</p>
+                <p className="font-mono text-[10px] sm:text-xs text-muted-foreground break-all">{user?.id}</p>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Color Theme */}
-      <ColorThemeSelector />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">{theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}Appearance</CardTitle>
+              <CardDescription>Just for you — dark mode isn't shared with the rest of the workspace.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Dark Mode</Label>
+                  <p className="text-xs text-muted-foreground">Toggle between light and dark themes</p>
+                </div>
+                <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Calendar Integrations */}
-      <CalendarIntegrationSettings />
+        <CalendarIntegrationSettings />
 
-      {/* Quick Links */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><Tag className="h-4 w-4" />Tag Manager</CardTitle>
-          <CardDescription>View, rename, merge, and delete tags across all content</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline" asChild>
-            <Link to="/settings/tags"><Tag className="mr-2 h-4 w-4" />Open Tag Manager</Link>
-          </Button>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button variant="destructive" onClick={signOut}>Sign Out</Button>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Export */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" />Export & Backup</CardTitle>
-          <CardDescription>Download your data as JSON or CSV</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={() => exportData('all')} disabled={exporting}>
-            <Download className="mr-2 h-4 w-4" />Full Export (JSON)
-          </Button>
-          <Button variant="outline" onClick={() => exportData('links')} disabled={exporting}>
-            <Download className="mr-2 h-4 w-4" />Links (CSV)
-          </Button>
-        </CardContent>
-      </Card>
+      {/* ============ Workspace ============ */}
+      <div className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workspace</h2>
 
-      {/* Danger */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button variant="destructive" onClick={signOut}>Sign Out</Button>
-        </CardContent>
-      </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-4 w-4" />Workspace Details</CardTitle>
+              <CardDescription>Visible to everyone in {currentWorkspace?.name ?? 'this workspace'}.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} disabled={!canManageWorkspace} className="flex-1" />
+                {canManageWorkspace && (
+                  <Button onClick={saveWorkspaceName} disabled={savingName || !workspaceName.trim() || workspaceName === currentWorkspace?.name}>
+                    {savingName ? 'Saving...' : 'Save'}
+                  </Button>
+                )}
+              </div>
+              {!canManageWorkspace && <p className="text-xs text-muted-foreground">Only owners/admins can rename the workspace.</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4" />Team</CardTitle>
+              <CardDescription>Manage members and invites</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" asChild>
+                <Link to="/team"><Users className="mr-2 h-4 w-4" />Open Team</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Tag className="h-4 w-4" />Tag Manager</CardTitle>
+              <CardDescription>View, rename, merge, and delete tags across all content</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" asChild>
+                <Link to="/settings/tags"><Tag className="mr-2 h-4 w-4" />Open Tag Manager</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" />Export & Backup</CardTitle>
+              <CardDescription>Download this workspace's data as JSON or CSV</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => exportData('all')} disabled={exporting}>
+                <Download className="mr-2 h-4 w-4" />Full Export (JSON)
+              </Button>
+              <Button variant="outline" onClick={() => exportData('links')} disabled={exporting}>
+                <Download className="mr-2 h-4 w-4" />Links (CSV)
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <ColorThemeSelector />
+      </div>
     </div>
   );
 }

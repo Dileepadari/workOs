@@ -1,13 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Play, Pause, RotateCcw, CheckSquare, Settings, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckSquare, Settings, Volume2, VolumeX, Timer, Flame, Clock } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,6 +45,8 @@ function sendNotification(title: string, body: string) {
 
 export default function FocusMode() {
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
+  const wsId = currentWorkspace?.id;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedTask, setSelectedTask] = useState<string>('');
@@ -66,28 +69,28 @@ export default function FocusMode() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !wsId) return;
     const load = async () => {
       const [t, p] = await Promise.all([
-        supabase.from('tasks').select('id, title, status, priority, project_id').neq('status', 'done'),
-        supabase.from('projects').select('id, name, color'),
+        api.select<Task>('tasks', wsId),
+        api.select<Project>('projects', wsId),
       ]);
-      setTasks(t.data ?? []);
-      setProjects(p.data ?? []);
+      setTasks(t.filter(task => task.status !== 'done'));
+      setProjects(p);
     };
     load();
-  }, [user]);
+  }, [user, wsId]);
 
   const handleTimerComplete = useCallback(() => {
     if (!isBreak) {
       setSessions(s => s + 1);
       if (soundEnabled) playBeep(3);
-      sendNotification('Focus session complete! 🎉', 'Time for a break.');
+      sendNotification('Focus session complete!', 'Time for a break.');
       setIsBreak(true);
       setTimeLeft(breakDuration * 60);
     } else {
       if (soundEnabled) playBeep(2);
-      sendNotification('Break over! 💪', 'Ready for another focus session?');
+      sendNotification('Break over!', 'Ready for another focus session?');
       setIsBreak(false);
       setTimeLeft(focusDuration * 60);
     }
@@ -114,8 +117,8 @@ export default function FocusMode() {
   };
 
   const completeTask = async () => {
-    if (!selectedTask) return;
-    await supabase.from('tasks').update({ status: 'done' }).eq('id', selectedTask);
+    if (!selectedTask || !wsId) return;
+    await api.update('tasks', wsId, selectedTask, { status: 'done' });
     setTasks(prev => prev.filter(t => t.id !== selectedTask));
     setSelectedTask('');
     setCompleteTaskConfirm(false);
@@ -129,74 +132,125 @@ export default function FocusMode() {
   const projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
 
   return (
-    <div className="flex min-h-[80vh] flex-col items-center justify-center gap-8 animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <PageHeader title="Focus Mode" />
 
-      {/* Task selector */}
-      <div className="w-full max-w-md">
-        <Select value={selectedTask} onValueChange={setSelectedTask}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a task to focus on..." />
-          </SelectTrigger>
-          <SelectContent>
-            {tasks.map(t => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.title}
-                {t.project_id && projectMap[t.project_id] && ` · ${projectMap[t.project_id].name}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Timer column */}
+        <Card className="lg:col-span-2">
+          <CardContent className="flex flex-col items-center justify-center gap-8 py-12">
+            {/* Task selector */}
+            <div className="w-full max-w-md">
+              <Select value={selectedTask} onValueChange={setSelectedTask}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a task to focus on..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tasks.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.title}
+                      {t.project_id && projectMap[t.project_id] && ` · ${projectMap[t.project_id].name}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* Timer */}
-      <div className="relative flex h-52 w-52 items-center justify-center">
-        <svg className="absolute inset-0" viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="90" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
-          <circle cx="100" cy="100" r="90" fill="none" stroke={isBreak ? 'hsl(var(--success))' : 'hsl(var(--primary))'} strokeWidth="6" strokeDasharray={`${2 * Math.PI * 90}`} strokeDashoffset={`${2 * Math.PI * 90 * (1 - pct / 100)}`} strokeLinecap="round" transform="rotate(-90 100 100)" className="transition-all duration-1000" />
-        </svg>
-        <div className="text-center">
-          <p className="font-mono text-4xl font-bold text-foreground">{String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}</p>
-          <p className="text-xs text-muted-foreground mt-1">{isBreak ? 'Break Time' : 'Focus Time'}</p>
-        </div>
-      </div>
+            {/* Timer */}
+            <div className="relative flex h-60 w-60 items-center justify-center">
+              <svg className="absolute inset-0" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="90" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
+                <circle cx="100" cy="100" r="90" fill="none" stroke={isBreak ? 'hsl(var(--success))' : 'hsl(var(--primary))'} strokeWidth="6" strokeDasharray={`${2 * Math.PI * 90}`} strokeDashoffset={`${2 * Math.PI * 90 * (1 - pct / 100)}`} strokeLinecap="round" transform="rotate(-90 100 100)" className="transition-all duration-1000" />
+              </svg>
+              <div className="text-center">
+                <p className="font-mono text-5xl font-bold text-foreground">{String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isBreak ? 'Break Time' : 'Focus Time'}</p>
+              </div>
+            </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={resetTimer}><RotateCcw className="h-4 w-4" /></Button>
-        <Button size="lg" onClick={toggleTimer} className="h-14 w-14 rounded-full">
-          {isRunning ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Mute sound' : 'Enable sound'}>
-          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)} title="Timer settings">
-          <Settings className="h-4 w-4" />
-        </Button>
-        {selectedTask && (
-          <Button variant="outline" size="icon" onClick={() => setCompleteTaskConfirm(true)} title="Mark task complete">
-            <CheckSquare className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+            {/* Controls */}
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="icon" onClick={resetTimer}><RotateCcw className="h-4 w-4" /></Button>
+              <Button size="lg" onClick={toggleTimer} className="h-14 w-14 rounded-full">
+                {isRunning ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Mute sound' : 'Enable sound'}>
+                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)} title="Timer settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+              {selectedTask && (
+                <Button variant="outline" size="icon" onClick={() => setCompleteTaskConfirm(true)} title="Mark task complete">
+                  <CheckSquare className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
 
-      {/* Current task info */}
-      {currentTask && (
-        <Card className="w-full max-w-md">
-          <CardContent className="p-4 text-center">
-            <p className="text-sm font-medium text-foreground">{currentTask.title}</p>
-            {currentTask.project_id && projectMap[currentTask.project_id] && (
-              <Badge variant="outline" className="mt-2 text-xs">
-                <span className="mr-1 h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: projectMap[currentTask.project_id].color }} />
-                {projectMap[currentTask.project_id].name}
-              </Badge>
+            {/* Current task info */}
+            {currentTask && (
+              <div className="w-full max-w-md rounded-lg border border-border p-4 text-center">
+                <p className="text-sm font-medium text-foreground">{currentTask.title}</p>
+                {currentTask.project_id && projectMap[currentTask.project_id] && (
+                  <Badge variant="outline" className="mt-2 text-xs">
+                    <span className="mr-1 h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: projectMap[currentTask.project_id].color }} />
+                    {projectMap[currentTask.project_id].name}
+                  </Badge>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Session counter */}
-      <p className="text-xs text-muted-foreground">{sessions} pomodoro session{sessions !== 1 ? 's' : ''} completed</p>
+        {/* Side column: session stats + up-next tasks */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Card>
+              <CardContent className="flex flex-col items-center gap-1.5 p-4 text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Timer className="h-4.5 w-4.5 text-primary" /></div>
+                <p className="text-2xl font-bold text-foreground tabular-nums">{sessions}</p>
+                <p className="text-xs text-muted-foreground">Sessions today</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center gap-1.5 p-4 text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10"><Clock className="h-4.5 w-4.5 text-success" /></div>
+                <p className="text-2xl font-bold text-foreground tabular-nums">{sessions * focusDuration}m</p>
+                <p className="text-xs text-muted-foreground">Focused time</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Flame className="h-4 w-4 text-warning" />
+                <p className="text-sm font-semibold text-foreground">Up Next</p>
+              </div>
+              {tasks.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No open tasks — enjoy the quiet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {tasks.slice(0, 6).map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTask(t.id)}
+                      className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors ${
+                        selectedTask === t.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <span className="flex-1 truncate">{t.title}</span>
+                      {t.project_id && projectMap[t.project_id] && (
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: projectMap[t.project_id].color }} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>

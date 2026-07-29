@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useToast } from '@/hooks/use-toast';
 
 type CaptureType = 'task' | 'note' | 'link' | 'log';
 
 export function QuickCapture() {
-  const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -32,22 +32,24 @@ export function QuickCapture() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!value.trim() || !user) return;
+    if (!value.trim() || !currentWorkspace) return;
+    const wsId = currentWorkspace.id;
 
     try {
       if (type === 'task') {
-        await supabase.from('tasks').insert({ title: value, user_id: user.id, status: 'todo', priority: 'medium' });
+        await api.insert('tasks', wsId, { title: value, status: 'todo', priority: 'medium' });
       } else if (type === 'note') {
-        await supabase.from('notes').insert({ title: value, user_id: user.id });
+        await api.insert('notes', wsId, { title: value });
       } else if (type === 'link') {
-        await supabase.from('links').insert({ title: value, url: url || value, user_id: user.id });
+        await api.insert('links', wsId, { title: value, url: url || value });
       } else if (type === 'log') {
         const today = new Date().toISOString().split('T')[0];
-        const { data: existing } = await supabase.from('daily_log').select('id, wins').eq('date', today).maybeSingle();
+        const existingRows = await api.select<{ id: string; wins: string[] }>('daily_log', wsId, { date: today });
+        const existing = existingRows[0];
         if (existing) {
-          await supabase.from('daily_log').update({ wins: [...(existing.wins || []), value] }).eq('id', existing.id);
+          await api.update('daily_log', wsId, existing.id, { wins: [...(existing.wins || []), value] });
         } else {
-          await supabase.from('daily_log').insert({ date: today, wins: [value], user_id: user.id });
+          await api.insert('daily_log', wsId, { date: today, wins: [value] });
         }
       }
       toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} added!` });

@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;                      /* White popovers */
     --popover-foreground: 220 14% 20%;         /* Dark text in popovers */
 
-    --primary: 217 33% 43%;                    /* Muted blue-slate */
+    --primary: 268.7 47.6% 28.4%;               /* ADK Dev brand violet */
     --primary-foreground: 0 0% 100%;           /* White text on primary (buttons) */
 
     --secondary: 214 32% 91%;                  /* Very light blue - for backgrounds */
@@ -25,7 +25,7 @@
     --muted: 220 13% 91%;                      /* Light gray - for subtle backgrounds */
     --muted-foreground: 215 14% 50%;           /* Gray text - for secondary/disabled content */
 
-    --accent: 217 33% 43%;                     /* Same as primary for consistency */
+    --accent: 26 90.5% 37.1%;                   /* ADK Dev brand gold */
     --accent-foreground: 0 0% 100%;            /* White text on accent */
 
     --destructive: 0 72% 51%;                  /* Red for errors/delete */
@@ -33,9 +33,9 @@
 
     --border: 220 13% 91%;                     /* Light gray borders */
     --input: 220 13% 91%;                      /* Light gray inputs */
-    --ring: 217 33% 43%;                       /* Blue-slate focus ring */
+    --ring: 268.7 47.6% 28.4%;                  /* Brand violet focus ring */
 
-    --radius: 0.375rem;
+    --radius: 0.5rem;
 
     /* Status colors - ensure they work in light mode */
     --success: 142 50% 33%;                    /* Green - works on white background */
@@ -43,12 +43,12 @@
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 220 14% 35%;
-    --sidebar-primary: 217 33% 43%;
+    --sidebar-primary: 268.7 47.6% 28.4%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 13% 91%;
     --sidebar-accent-foreground: 220 14% 20%;
     --sidebar-border: 220 13% 87%;
-    --sidebar-ring: 217 33% 43%;
+    --sidebar-ring: 268.7 47.6% 28.4%;
   }
 
   .dark {
@@ -62,7 +62,7 @@
     --popover: 217 33% 17%;                    /* Dark popovers */
     --popover-foreground: 218 14% 92%;         /* Bright text in dark popovers */
 
-    --primary: 217 33% 56%;                    /* BRIGHTENED: From 43% to 56% - now visible on dark backgrounds */
+    --primary: 266.4 40.1% 63.3%;               /* ADK Dev brand violet, brightened for dark bg */
     --primary-foreground: 0 0% 100%;           /* White text on primary buttons */
 
     --secondary: 217 33% 23%;                  /* Slightly lighter than background for distinction */
@@ -71,15 +71,15 @@
     --muted: 217 33% 24%;                      /* BRIGHTENED: From 20% to 24% - better hover states */
     --muted-foreground: 215 14% 68%;           /* BRIGHTENED: From 60% to 68% - more readable secondary text */
 
-    --accent: 217 33% 56%;                     /* Same as primary for consistency */
-    --accent-foreground: 0 0% 100%;            /* White text on accent */
+    --accent: 37.7 92.1% 50.2%;                 /* ADK Dev brand gold, brightened for dark bg */
+    --accent-foreground: 0 0% 10%;             /* Dark text reads better on bright gold */
 
     --destructive: 0 84% 60%;                  /* BRIGHTENED: From 51% to 60% - better visibility on dark */
     --destructive-foreground: 0 0% 100%;       /* White text on destructive */
 
     --border: 217 33% 24%;                     /* BRIGHTENED: From 20% to 24% - more visible borders */
     --input: 217 33% 24%;                      /* BRIGHTENED: Dark gray inputs with better contrast */
-    --ring: 217 33% 56%;                       /* Brightened focus ring to match new primary */
+    --ring: 266.4 40.1% 63.3%;                  /* Brightened focus ring to match new primary */
 
     /* Status colors - OPTIMIZED for dark mode visibility */
     --success: 142 71% 50%;                    /* BRIGHTENED & SATURATED: From 142 50% 40% - more visible */
@@ -87,12 +87,12 @@
 
     --sidebar-background: 217 33% 10%;
     --sidebar-foreground: 218 14% 88%;
-    --sidebar-primary: 217 33% 56%;
+    --sidebar-primary: 266.4 40.1% 63.3%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 20%;
     --sidebar-accent-foreground: 218 14% 92%;
     --sidebar-border: 217 33% 20%;
-    --sidebar-ring: 217 33% 56%;
+    --sidebar-ring: 266.4 40.1% 63.3%;
   }
 }
 
@@ -201,7 +201,13 @@
   }
 
   .hover-lift {
-    @apply transition-all hover:shadow-md;
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20;
+  }
+
+  /* Smooth crossfade when Radix Tabs swaps content (ProjectDetail's tabs,
+     etc.) instead of an instant, jarring swap. */
+  .tab-content-animated {
+    @apply animate-fade-in;
   }
 
   .hover-tone {
@@ -282,4 +288,50 @@
   .bg-visible {
     @apply bg-muted/20;
   }
+}
+
+/* ===========================
+   BLOCKNOTE (Notion-style editor) ALIGNMENT
+   ===========================
+   BlockNote's own default spacing/type-scale renders text flush against
+   its container with no inset and at a larger base font than our shadcn
+   Input (px-3/text-sm) — right next to a regular Input in the same form,
+   it reads as a mismatched "input inside an input". Padding here (0.5rem
+   top/bottom) is chosen to exactly match Input's py-2, and the paragraph
+   line-height below matches Tailwind's text-sm (1.25rem) rather than
+   BlockNote's own 21px, so a single line totals the same 36px box height
+   as a plain Input. Reapplied with !important because BlockNote ships its
+   own stylesheet whose load order relative to this file isn't guaranteed. */
+.bn-container.bn-shadcn .bn-editor {
+  padding: 0.5rem 0.75rem !important;
+}
+.bn-container.bn-shadcn .bn-editor .bn-block-content[data-content-type="paragraph"] {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+/* The empty-placeholder ::after pseudo-element is `display: inline`, but
+   since it's a rendered sibling after a block-level <p>, it wraps onto its
+   own line — doubling the row's height (20px empty line + 20px placeholder
+   line). Taking it out of flow and overlaying it back onto the first line
+   fixes that without touching BlockNote's own placeholder text/logic. */
+.bn-container.bn-shadcn .bn-editor .bn-block-content {
+  position: relative;
+}
+.bn-container.bn-shadcn .bn-editor .bn-block-content::after {
+  position: absolute !important;
+  inset: 0 auto auto 0;
+}
+
+/* ===========================
+   LOGO MONOCHROME
+   ===========================
+   logo-mark.png is a solid brand-violet mark on transparent background —
+   invisible against the dark sidebar/card backgrounds it sits on in dark
+   mode. brightness(0) flattens any opaque pixel to black while preserving
+   the alpha shape; invert(1) flips that to white for dark mode. */
+.logo-mono {
+  filter: brightness(0);
+}
+.dark .logo-mono {
+  filter: brightness(0) invert(1);
 }

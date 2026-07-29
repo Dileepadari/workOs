@@ -1,5 +1,4 @@
-import { useColorTheme, colorPalettes, ColorPalette } from '@/contexts/ColorThemeContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme, ColorPalette } from '@/contexts/ThemeContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const paletteNames: Record<ColorPalette, string> = {
@@ -12,6 +11,7 @@ const paletteNames: Record<ColorPalette, string> = {
   nord: 'Nord',
   solarized: 'Solarized',
   catppuccin: 'Catppuccin',
+  custom: 'Custom',
 };
 
 interface ColorSwatchProps {
@@ -34,10 +34,9 @@ function ColorSwatch({ label, colorValue }: ColorSwatchProps) {
 }
 
 export function ColorPaletteShowcase() {
-  const { colorPalette } = useColorTheme();
-  const { theme } = useTheme();
+  const { colorPalette, theme, getCurrentColors } = useTheme();
   const isDark = theme === 'dark';
-  const palette = colorPalettes[colorPalette];
+  const palette = getCurrentColors();
 
   if (!palette) return null;
 

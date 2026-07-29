@@ -1,4 +1,4 @@
-// Single client for the `workos` Edge Function — every read/write in the
+// Single client for the `workos` Edge Function - every read/write in the
 // app goes through this instead of calling supabase.from(...) directly,
 // since there is no Supabase-issued session for Postgres RLS to key off of
 // (see supabase/functions/workos/index.ts for why). Mirrors the shape of the
@@ -250,8 +250,8 @@ export const api = {
     await dataCall('delete', table, workspaceId, { id, idColumn });
   },
 
-  // The storage function requires a flat filename — letters/digits/./_/-
-  // only, no slashes — so this always sanitizes rather than trusting the
+  // The storage function requires a flat filename - letters/digits/./_/-
+  // only, no slashes - so this always sanitizes rather than trusting the
   // caller's original file.name.
   upload: async (file: File, opts: { fileName?: string } = {}): Promise<string> => {
     const safeOriginal = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');

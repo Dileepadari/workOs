@@ -47,7 +47,7 @@ export default function SettingsPage() {
     if (!wsId) return;
     setExporting(true);
     try {
-      // 'bookmarks' dropped from this list — that table was removed in the
+      // 'bookmarks' dropped from this list - that table was removed in the
       // multi-tenant rebuild (dead, zero rows); Resources.tsx's links table
       // is the only "save a URL" store left.
       const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'discussions', 'meetings', 'links', 'notes', 'daily_log'] : ['projects'];
@@ -111,7 +111,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">{theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}Appearance</CardTitle>
-              <CardDescription>Just for you — dark mode isn't shared with the rest of the workspace.</CardDescription>
+              <CardDescription>Just for you - dark mode isn't shared with the rest of the workspace.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">

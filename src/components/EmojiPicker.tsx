@@ -12,7 +12,7 @@ interface Props {
 }
 
 // Real emoji-mart picker (search, categories, recents) instead of `prompt()`
-// — set="twitter" renders Twemoji icon images rather than relying on the
+// - set="twitter" renders Twemoji icon images rather than relying on the
 // viewer's OS emoji font, matching how already-picked reactions render
 // elsewhere via `Emoji.tsx`.
 export function EmojiPicker({ onSelect, trigger }: Props) {

@@ -48,7 +48,7 @@ export default function AcceptInvite() {
           <CardDescription>
             {user
               ? 'Accept this invite with your current account.'
-              : "You've been invited — create an account to join."}
+              : "You've been invited - create an account to join."}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -17,7 +17,7 @@ interface TaggedRow { id: string; tags: string[] | null; }
 
 // Only projects/links/resources carry real `tags` columns. `tasks` has no
 // tags column, and `bookmarks` was dropped in the multi-tenant rebuild
-// (dead table, zero rows) — both are stale references from the old
+// (dead table, zero rows) - both are stale references from the old
 // single-user build and are intentionally left out here.
 const TAG_TABLES = ['projects', 'links', 'resources'] as const;
 

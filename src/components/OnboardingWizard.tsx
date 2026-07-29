@@ -26,7 +26,7 @@ function markDismissed(workspaceId: string) {
 }
 
 // First swatch keeps the real ADK Dev brand (the 'common' palette) rather
-// than overriding it — picking any other swatch switches to a custom
+// than overriding it - picking any other swatch switches to a custom
 // single-color palette instead.
 const BRAND_DEFAULT = '#47266b';
 const BRAND_SWATCHES = [BRAND_DEFAULT, '#2563eb', '#dc2626', '#16a34a', '#0891b2', '#ea580c'];
@@ -105,7 +105,7 @@ export function OnboardingWizard() {
     {
       icon: FolderPlus,
       title: 'Create your first project',
-      description: 'Everything in WorkOS — tasks, notes, discussions — lives inside a project.',
+      description: 'Everything in WorkOS - tasks, notes, discussions - lives inside a project.',
       body: (
         <div className="space-y-2">
           <Label>Project name</Label>

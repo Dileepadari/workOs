@@ -1,11 +1,11 @@
--- Stage 5: collaboration layer — generic comments (replacing project-only
+-- Stage 5: collaboration layer - generic comments (replacing project-only
 -- `discussions`), @mentions, generic reactions (replacing
 -- `discussion_reactions`), an activity feed, and persisted notifications.
 --
 -- Existing discussions/reactions are migrated non-destructively into the
 -- new generic tables before the old ones are retired (old tables are
 -- dropped in the *next* migration, after the frontend has been verified
--- against the new ones — see 20260729000008).
+-- against the new ones - see 20260729000008).
 
 create table public.comments (
   id uuid primary key default gen_random_uuid(),
@@ -89,7 +89,7 @@ select d.id, d.workspace_id, 'project', d.project_id, d.created_by,
 from public.discussions d;
 
 -- Reactions attach to the comment itself (entity_type='comment'), not to
--- whatever the comment is posted under — `discussion_id` becomes the
+-- whatever the comment is posted under - `discussion_id` becomes the
 -- matching `comments.id` since the migration above preserves discussion ids.
 insert into public.reactions (workspace_id, entity_type, entity_id, user_id, emoji, created_at)
 select r.workspace_id, 'comment', r.discussion_id, r.user_identifier::uuid, r.emoji, r.created_at

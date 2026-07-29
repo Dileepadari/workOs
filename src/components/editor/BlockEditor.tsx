@@ -29,7 +29,7 @@ export function BlockEditor({ content, onChange, editable = true, workspaceId, e
   const editor = useCreateBlockNote({
     initialContent,
     uploadFile: async (file: File) => {
-      // The storage function requires a single flat filename (no slashes) —
+      // The storage function requires a single flat filename (no slashes) -
       // fold workspace/entity into the name itself for traceability instead
       // of a directory path; the `attachments` table is the real source of
       // truth for that structure.

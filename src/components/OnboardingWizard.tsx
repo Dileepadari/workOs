@@ -160,7 +160,7 @@ export function OnboardingWizard() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) close(); }}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <div className="space-y-5 animate-fade-in" key={step}>
           <div className="flex items-center gap-2">
             {steps.map((_, i) => (

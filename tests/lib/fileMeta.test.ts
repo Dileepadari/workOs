@@ -1,5 +1,52 @@
 import { describe, it, expect } from 'vitest';
-import { fileKind, isImage, formatBytes } from '@/lib/fileMeta';
+import { fileKind, isImage, formatBytes, previewKind, languageLabel } from '@/lib/fileMeta';
+
+describe('previewKind', () => {
+  it('routes media to its native player/renderer', () => {
+    expect(previewKind('image/png', 'a.png')).toBe('image');
+    expect(previewKind('video/mp4', 'a.mp4')).toBe('video');
+    expect(previewKind('audio/mpeg', 'a.mp3')).toBe('audio');
+    expect(previewKind('application/pdf', 'a.pdf')).toBe('pdf');
+  });
+
+  it('treats source and plain-text formats as text', () => {
+    for (const name of ['main.ts', 'script.py', 'notes.txt', 'README.md', 'data.csv', 'config.yaml', 'query.sql']) {
+      expect(previewKind(null, name)).toBe('text');
+    }
+    expect(previewKind('text/plain', 'no-extension')).toBe('text');
+  });
+
+  it('prefers rendering SVG as an image even though it is also text', () => {
+    expect(previewKind(null, 'logo.svg')).toBe('image');
+  });
+
+  it('falls back to the extension when the mime type is missing', () => {
+    expect(previewKind(null, 'report.pdf')).toBe('pdf');
+  });
+
+  it('has no preview for office formats, which would require an external viewer', () => {
+    for (const name of ['plan.docx', 'budget.xlsx', 'deck.pptx', 'old.doc']) {
+      expect(previewKind(null, name)).toBe('none');
+    }
+  });
+
+  it('has no preview for unknown binaries', () => {
+    expect(previewKind(null, 'archive.zip')).toBe('none');
+    expect(previewKind(null, 'mystery.xyz')).toBe('none');
+  });
+});
+
+describe('languageLabel', () => {
+  it('labels the code viewer by extension', () => {
+    expect(languageLabel('main.tsx')).toBe('TSX');
+    expect(languageLabel('run.sh')).toBe('SH');
+  });
+
+  it('falls back for a file with no extension', () => {
+    expect(languageLabel('Makefile')).toBe('MAKEFILE');
+    expect(languageLabel('')).toBe('TEXT');
+  });
+});
 
 describe('fileKind', () => {
   it('prefers the MIME type when it is specific enough', () => {

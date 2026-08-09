@@ -99,7 +99,7 @@ export function QuickCapture() {
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md" {...preventAccidentalDialogClose}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md" {...preventAccidentalDialogClose}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {items.find(i => i.type === type)?.icon && (() => { const Icon = items.find(i => i.type === type)!.icon; return <Icon className="h-4 w-4" />; })()}

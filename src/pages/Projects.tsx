@@ -146,7 +146,7 @@ export default function Projects() {
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Project</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" {...preventAccidentalDialogClose}>
+          <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto sm:max-w-lg" {...preventAccidentalDialogClose}>
             <DialogHeader>
               <DialogTitle>{editingProject ? 'Edit Project' : 'New Project'}</DialogTitle>
             </DialogHeader>

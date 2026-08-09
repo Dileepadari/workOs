@@ -103,7 +103,7 @@ export default function Notes() {
           <DialogTrigger asChild>
             <Button size="sm" onClick={openNewNote}><Plus className="mr-2 h-4 w-4" />New Note</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" {...preventAccidentalDialogClose}>
+          <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" {...preventAccidentalDialogClose}>
             <DialogHeader><DialogTitle>{editing ? 'Edit Note' : 'New Note'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -187,7 +187,7 @@ export default function Notes() {
 
       {/* Full note, rendered rather than clamped - read without entering edit mode. */}
       <Dialog open={viewing !== null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" aria-describedby={undefined}>
           {viewing && (
             <>
               <DialogHeader>

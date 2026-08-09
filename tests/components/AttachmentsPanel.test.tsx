@@ -12,6 +12,7 @@ vi.mock('@/lib/api', () => ({
     remove: vi.fn(),
     reassign: vi.fn(),
   },
+  files: { text: vi.fn() },
 }));
 
 const mocked = vi.mocked(attachments);
@@ -40,13 +41,36 @@ beforeEach(() => {
 });
 
 describe('AttachmentsPanel', () => {
-  it('lists existing files with a human-readable size and a working link', async () => {
+  it('lists existing files with a human-readable size and a download link', async () => {
     mocked.list.mockResolvedValue([attachment()]);
     render(<AttachmentsPanel {...scope} />);
 
-    const link = await screen.findByRole('link', { name: 'spec.pdf' });
-    expect(link).toHaveAttribute('href', 'https://mystorage.dileepadari.dev/images/workos/spec.pdf');
+    // The name itself opens the in-app preview; downloading is a separate control.
+    expect(await screen.findByRole('button', { name: 'spec.pdf' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /download spec\.pdf/i }))
+      .toHaveAttribute('href', 'https://mystorage.dileepadari.dev/images/workos/spec.pdf');
     expect(screen.getByText('2 KB')).toBeInTheDocument();
+  });
+
+  it('opens the in-app preview when the file name is clicked', async () => {
+    mocked.list.mockResolvedValue([attachment()]);
+    render(<AttachmentsPanel {...scope} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'spec.pdf' }));
+
+    const dialog = await screen.findByRole('dialog');
+    // A PDF renders in an iframe rather than being handed to an external viewer.
+    expect(dialog.querySelector('iframe')).toHaveAttribute('src', 'https://mystorage.dileepadari.dev/images/workos/spec.pdf');
+  });
+
+  it('refuses to preview office formats instead of sending them to a third-party viewer', async () => {
+    mocked.list.mockResolvedValue([attachment({ file_name: 'plan.docx', mime_type: null })]);
+    render(<AttachmentsPanel {...scope} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'plan.docx' }));
+
+    expect(await screen.findByText(/no in-browser preview/i)).toBeInTheDocument();
+    expect(screen.getByRole('dialog').querySelector('iframe')).toBeNull();
   });
 
   it('shows an empty state when nothing is attached yet', async () => {
@@ -67,7 +91,7 @@ describe('AttachmentsPanel', () => {
     await userEvent.upload(input, file);
 
     await waitFor(() => expect(mocked.upload).toHaveBeenCalledWith(file, scope));
-    expect(await screen.findByRole('link', { name: 'notes.txt' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'notes.txt' })).toBeInTheDocument();
   });
 
   it('renders nothing at all when read-only with no files, to stay out of comment threads', async () => {
@@ -80,9 +104,11 @@ describe('AttachmentsPanel', () => {
     mocked.list.mockResolvedValue([attachment()]);
     render(<AttachmentsPanel {...scope} readOnly />);
 
-    await screen.findByRole('link', { name: 'spec.pdf' });
+    await screen.findByRole('button', { name: 'spec.pdf' });
     expect(document.querySelector('input[type="file"]')).toBeNull();
     expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
+    // Reading and downloading stay available - read-only only removes editing.
+    expect(screen.getByRole('link', { name: /download spec\.pdf/i })).toBeInTheDocument();
   });
 
   it('reports the entity contents to the parent, so a composer knows files are staged', async () => {

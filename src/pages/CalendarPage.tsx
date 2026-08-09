@@ -654,7 +654,7 @@ export default function CalendarPage() {
 
       {/* Event Detail Modal */}
       <Dialog open={!!selectedEvent && !addDialog} onOpenChange={(v) => !v && setSelectedEvent(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedEvent && typeIcon(selectedEvent.type)}
@@ -726,7 +726,7 @@ export default function CalendarPage() {
 
       {/* Add/Edit Event Modal */}
       <Dialog open={addDialog} onOpenChange={(v) => { if (!v) { setAddDialog(false); setEditMode(false); } }}>
-        <DialogContent {...preventAccidentalDialogClose}>
+        <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>{editMode ? 'Edit Event' : 'Add Calendar Event'}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveEvent} className="space-y-4">
             <div className="space-y-2"><Label>Title</Label><Input value={eventForm.title} onChange={e => setEventForm({ ...eventForm, title: e.target.value })} required /></div>
@@ -772,7 +772,7 @@ export default function CalendarPage() {
 
       {/* Delete Confirmation */}
       <Dialog open={!!deleteConfirm} onOpenChange={(v) => !v && setDeleteConfirm(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Delete Event</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Are you sure you want to delete "{deleteConfirm?.title}"? This cannot be undone.</p>
           <DialogFooter className="gap-2">

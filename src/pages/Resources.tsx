@@ -194,7 +194,7 @@ export default function Resources() {
                 Save Link
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
+            <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
               <DialogHeader>
                 <DialogTitle>{editingLink ? 'Edit Link' : 'Save a Link'}</DialogTitle>
               </DialogHeader>
@@ -403,7 +403,7 @@ export default function Resources() {
 
       {/* Read-only detail view: full description, every tag, and any files. */}
       <Dialog open={viewingLink !== null} onOpenChange={(o) => { if (!o) setViewingLink(null); }}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" aria-describedby={undefined}>
           {viewingLink && (
             <>
               <DialogHeader>

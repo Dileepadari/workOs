@@ -18,9 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 22, not 20: jsdom 30 pulls an undici that calls
+      # webidl.util.markAsUncloneable, which doesn't exist on older Node 20
+      # releases - the test run dies before a single test executes.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # .npmrc sets legacy-peer-deps - @blocknote/shadcn declares a peer on
@@ -56,5 +59,11 @@ jobs:
 
       # The workos function is Deno, not Node - it's excluded from tsconfig
       # and eslint, so without this it would have no CI coverage at all.
+      #
+      # Must run from supabase/functions so Deno picks up the deno.json there
+      # (nodeModulesDir: none). From the repo root it walks up, finds the
+      # frontend's package.json, and tries to resolve npm: specifiers against
+      # Node's tree instead of the registry.
       - name: Typecheck
-        run: deno check supabase/functions/workos/index.ts
+        working-directory: supabase/functions
+        run: deno check workos/index.ts

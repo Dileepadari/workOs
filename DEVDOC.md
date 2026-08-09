@@ -75,6 +75,7 @@ Single file: `supabase/functions/workos/index.ts`. Routes:
 | POST | `/data` | **Generic table gateway** - select/insert/update/upsert/delete against any table in `CONTENT_TABLES` |
 | POST | `/upload` | Proxies a file to Oracle storage, returns the public URL |
 | GET | `/file-text` | Reads a stored file's text for the in-app code viewer (storage sends no CORS headers) |
+| DELETE | `/file` | Deletes the stored blob when an attachment is removed |
 | GET/POST | `/comments`, PATCH/DELETE `/comments/:id` | Comments on any entity |
 | POST | `/reactions/toggle`, GET `/reactions` | Emoji reactions on any entity |
 | GET | `/notifications`, POST `/notifications/:id/read`, POST `/notifications/read-all` | Notification center |
@@ -149,12 +150,22 @@ The storage server has no tenancy or metadata concept, so `public.attachments` i
 | image | `<img>` | no |
 | video / audio | `<video>` / `<audio>` | no |
 | pdf | `<iframe>` (browser's native PDF viewer) | no |
-| text / code | `<pre>` with a line-number gutter | **yes** — via `/file-text` |
-| none | download prompt | — |
+| text / code | `<pre>` with a line-number gutter | **yes** - via `/file-text` |
+| none | download prompt | - |
 
-The storage host serves **no CORS headers**. Media elements aren't CORS-gated so they load directly, but `fetch()` is blocked — hence the `/file-text` proxy for the code viewer. That route is deliberately narrow so it can't be used as an open proxy: it requires a valid user token, compares the requested URL's **origin** against `ORACLE_PUBLIC_BASE_URL` (a `startsWith` check would accept `https://mystorage.dileepadari.dev.evil.com/…`), and caps the response at 2 MB.
+The storage host serves **no CORS headers**. Media elements aren't CORS-gated so they load directly, but `fetch()` is blocked - hence the `/file-text` proxy for the code viewer. That route is deliberately narrow so it can't be used as an open proxy: it requires a valid user token, compares the requested URL's **origin** against `ORACLE_PUBLIC_BASE_URL` (a `startsWith` check would accept `https://mystorage.dileepadari.dev.evil.com/…`), and caps the response at 2 MB.
 
 Office formats (`.docx`/`.xlsx`/`.pptx`) map to `none` **on purpose**. Previewing them in-browser would mean handing the file's URL to Google's or Microsoft's viewer, and these are private documents on a private host. They get a download prompt instead. Don't "fix" this by adding a third-party viewer without deciding that trade-off deliberately.
+
+### Deleting attachments
+
+`attachments.remove()` deletes **both** the stored blob and the metadata row, in that order. Storage first is deliberate: if the blob delete fails, the row survives, so the file is still listed and the delete can be retried. The reverse order would leave a file that nothing references and nothing can find again.
+
+This needs a `DELETE` handler on the storage server (`/mnt/storage/supabase/functions/index.ts` on the Oracle box, reached via `ssh ubuntu@mystorage.dileepadari.dev`). That file is a **shared entrypoint for every app on that box** - moneyos, portfolio and others all route through it - so any change there must be additive, and it's worth diffing against the `.bak-<epoch>` copy and smoke-testing the other apps' endpoints before and after a `docker compose restart edge-runtime` in `/home/ubuntu/supabase-prod/docker`.
+
+The handler mirrors `/upload` exactly: same admin JWT, same `ALLOWED_CATEGORIES` check, same `^[a-zA-Z0-9._-]+$` filename regex (which is what keeps a caller inside the category directory, since it permits no `/`), plus an explicit `..` rejection because dots alone satisfy that regex. A missing file returns success - deleting twice shouldn't error.
+
+**Caveat by design:** an image pasted into a BlockNote editor creates both an attachment row *and* an embed in `content_json`. Deleting the attachment removes the blob, so the inline image breaks. The confirm dialog says so. A precise fix would mean scanning the parent entity's `content_json` for the URL before allowing deletion; nothing does that today.
 
 **Draft ids.** Files usually need somewhere to belong *before* the row they hang off exists. Most forms solve this by generating a uuid client-side and inserting it as the row's own `id` (`Notes`, `Tasks`, `Resources`, meetings), so files uploaded against the draft already belong to the right entity once saved. Comments can't: the server mints the comment id. `CommentsPanel` therefore stages files against the composer's draft id and calls `attachments.reassign(...)` after posting to re-point them. If you add another server-id-generating entity, follow that pattern.
 
@@ -324,5 +335,5 @@ npx supabase functions deploy workos       # deploy the Edge Function
 - **Upload and public-read are different hosts.** Never return the upload endpoint's own `url` to the client; see [File storage](#file-storage-oracle-not-supabase-storage).
 - **`WORKOS_SECRETS_KEY` has no rotation path.** Changing it makes every existing vault entry undecryptable. Adding rotation means re-encrypting every row under the new key in a migration, which nothing does today.
 - **Cancelling a create dialog orphans staged attachments.** Files upload immediately, against a draft id that becomes the row's id on save. Close the dialog without saving and the `attachments` rows (and the stored files) survive, pointing at an entity that never existed. Harmless but untidy; a fix would mean tracking staged ids per dialog and deleting them on dismiss, which nothing does today.
-- **`DialogContent` deviates from stock shadcn** with `grid-cols-[minmax(0,1fr)]`, and every `<DialogContent>` passes `aria-describedby={undefined}` (no dialog in this app renders a `DialogDescription`). Both get lost if you regenerate the component — see the comment in `src/components/ui/dialog.tsx`.
+- **`DialogContent` deviates from stock shadcn** with `grid-cols-[minmax(0,1fr)]`, and every `<DialogContent>` passes `aria-describedby={undefined}` (no dialog in this app renders a `DialogDescription`). Both get lost if you regenerate the component - see the comment in `src/components/ui/dialog.tsx`.
 - **The frontend bundle is ~2.5 MB** (733 kB gzipped), dominated by BlockNote and recharts. Not code-split yet; if that becomes a problem, route-level `React.lazy` is the obvious first move.

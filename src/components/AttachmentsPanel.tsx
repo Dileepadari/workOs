@@ -100,10 +100,21 @@ export function AttachmentsPanel({
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    await attachmentsApi.remove(workspaceId, deleteTarget.id);
-    setDeleteTarget(null);
-    toast({ title: 'Attachment removed' });
-    load();
+    try {
+      await attachmentsApi.remove(workspaceId, deleteTarget);
+      toast({ title: 'Attachment deleted' });
+    } catch (error) {
+      // The row is left in place when storage refuses, so the file stays
+      // visible and the delete can be retried rather than silently orphaned.
+      toast({
+        title: 'Could not delete this file',
+        description: error instanceof Error ? error.message : undefined,
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleteTarget(null);
+      load();
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -235,9 +246,9 @@ export function AttachmentsPanel({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
-        title="Remove attachment"
-        description={`Remove "${deleteTarget?.file_name}" from this item? The file itself stays in storage.`}
-        confirmText="Remove"
+        title="Delete attachment"
+        description={`Permanently delete "${deleteTarget?.file_name}"? The file is removed from storage as well, so anything embedding it (an image pasted into a note, for example) will break. This cannot be undone.`}
+        confirmText="Delete"
         variant="destructive"
         onConfirm={confirmDelete}
       />

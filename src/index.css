@@ -322,6 +322,28 @@
   inset: 0 auto auto 0;
 }
 
+/* BlockNote sizes itself to its content, so a wrapper with a min-height
+   (every "Description"/"Content"/"Agenda" field) rendered as a tall bordered
+   box with a single editable line pinned to the top - the remaining space was
+   dead: clicking it didn't focus the editor and the box didn't read as a text
+   area. Stretching the editor to fill its wrapper makes the whole bordered
+   box the writing surface, matching how a plain Textarea behaves.
+   No-op where the wrapper has no height of its own (the read-only comment and
+   agenda previews), which keeps those at their natural single-line size. */
+.bn-fill {
+  display: flex;
+  flex-direction: column;
+}
+.bn-fill .bn-container.bn-shadcn {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.bn-fill .bn-container.bn-shadcn .bn-editor {
+  flex: 1 1 auto;
+}
+
 /* ===========================
    LOGO MONOCHROME
    ===========================

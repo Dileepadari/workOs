@@ -353,8 +353,11 @@ export default function Secrets() {
                     <Badge className={`shrink-0 text-[10px] ${secretCategoryColor(s.category)}`}>{secretCategoryLabel(s.category)}</Badge>
                   </div>
 
-                  <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-1.5">
-                    <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground" title={isRevealed ? 'Click the eye to hide' : undefined}>
+                  <div className="flex items-start gap-1 rounded-md border border-border bg-muted/30 px-2 py-1.5">
+                    {/* Revealed values wrap (break-all) rather than truncate -
+                        a half-shown API key is useless. The mask is a fixed
+                        short string, so it never needs to wrap. */}
+                    <code className={`min-w-0 flex-1 font-mono text-xs text-foreground ${isRevealed ? 'break-all' : 'truncate'}`}>
                       {isRevealed ? revealed[s.id] : MASKED_VALUE}
                     </code>
                     <Button
@@ -374,7 +377,7 @@ export default function Secrets() {
                     </Button>
                   </div>
 
-                  {s.description && <p className="whitespace-pre-wrap text-xs text-muted-foreground">{s.description}</p>}
+                  {s.description && <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{s.description}</p>}
 
                   {s.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">

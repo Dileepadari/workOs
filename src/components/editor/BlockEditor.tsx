@@ -5,6 +5,7 @@ import type { PartialBlock } from '@blocknote/core';
 import { attachments } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { blocksToPlainText, emptyDocument } from '@/lib/blockContent';
+import { cn } from '@/lib/utils';
 
 interface Props {
   content: unknown;
@@ -34,7 +35,11 @@ export function BlockEditor({ content, onChange, editable = true, workspaceId, e
   });
 
   return (
-    <div className={className}>
+    // bn-fill makes the editor stretch to whatever height the caller's
+    // className asks for (min-h-[240px] etc). Without it BlockNote sizes
+    // itself to its content - one line pinned to the top of a tall box, with
+    // the rest of the box dead space that doesn't focus the editor on click.
+    <div className={cn('bn-fill', className)}>
       <BlockNoteView
         editor={editor}
         editable={editable}

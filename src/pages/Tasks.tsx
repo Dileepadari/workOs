@@ -22,6 +22,7 @@ import { ListSkeleton } from '@/components/skeletons/primitives';
 import type { Task, ProjectLite, Member } from '@/components/tasks/types';
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
+import { AttachmentsPanel } from '@/components/AttachmentsPanel';
 
 type TaskForm = {
   title: string; status: TaskStatus;
@@ -265,6 +266,9 @@ export default function Tasks() {
                     <AssigneePicker members={members} value={form.assignee_id || null} onChange={(id) => setForm({ ...form, assignee_id: id ?? '' })} className="h-9 text-sm" />
                   </div>
                 </div>
+                {wsId && draftId && (
+                  <AttachmentsPanel workspaceId={wsId} entityType="tasks" entityId={draftId} label="Files" compact />
+                )}
                 <Button type="submit" className="w-full">{editingTask ? 'Save Changes' : 'Create Task'}</Button>
               </form>
             </DialogContent>

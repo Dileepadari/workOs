@@ -6,7 +6,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { FolderKanban, CheckSquare, Link2, FileText, Search, Flag, Calendar, Video } from 'lucide-react';
+import { FolderKanban, CheckSquare, Link2, FileText, Search, Flag, Calendar, Video, type LucideIcon } from 'lucide-react';
 
 interface SearchResult {
   type: 'project' | 'task' | 'link' | 'note' | 'milestone' | 'meeting' | 'resource';
@@ -16,7 +16,7 @@ interface SearchResult {
   url?: string;
 }
 
-const typeIcons: Record<string, any> = {
+const typeIcons: Record<string, LucideIcon> = {
   project: FolderKanban,
   task: CheckSquare,
   link: Link2,

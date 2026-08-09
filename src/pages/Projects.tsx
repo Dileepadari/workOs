@@ -121,7 +121,7 @@ export default function Projects() {
   // Filter & sort
   const allTags = [...new Set(projects.flatMap(p => p.tags ?? []))];
 
-  let filtered = projects.filter(p => {
+  const filtered = projects.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q));
     const matchStatus = statusFilter === 'all' || p.status === statusFilter;

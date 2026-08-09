@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Users, ChevronsUpDown, Plus, Check } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Users, ChevronsUpDown, Plus, Check, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -30,6 +30,7 @@ const navGroups = [
     items: [
       { to: '/notes', icon: FileText, label: 'Notes' },
       { to: '/resources', icon: Link2, label: 'Resources' },
+      { to: '/secrets', icon: KeyRound, label: 'Secrets' },
     ],
   },
   {

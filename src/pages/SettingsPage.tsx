@@ -15,6 +15,23 @@ import { PageHeader } from '@/components/PageHeader';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
 import { CalendarIntegrationSettings } from '@/components/CalendarIntegrationSettings';
 
+/** Only the columns the links CSV export writes. */
+interface ExportedLink {
+  url: string;
+  title: string;
+  short_key: string | null;
+  tags: string[] | null;
+  category: string;
+  click_count: number | null;
+  created_at: string;
+}
+
+/** RFC4180 cell: always quoted, with embedded quotes doubled - a title
+ *  containing a `"` used to produce a broken CSV. */
+function csvCell(value: string | null | undefined): string {
+  return `"${(value ?? '').replace(/"/g, '""')}"`;
+}
+
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { currentWorkspace, refresh } = useWorkspace();
@@ -51,16 +68,19 @@ export default function SettingsPage() {
       // multi-tenant rebuild (dead, zero rows); Resources.tsx's links table
       // is the only "save a URL" store left.
       const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'discussions', 'meetings', 'links', 'notes', 'daily_log'] : ['projects'];
-      const allData: Record<string, any[]> = {};
+      const allData: Record<string, unknown[]> = {};
       for (const table of tables) {
         allData[table] = await api.select(table, wsId);
       }
 
       if (type === 'links') {
         // CSV export for links
-        const links = allData.links;
+        const links = allData.links as ExportedLink[];
         const csv = ['url,title,short_key,tags,category,click_count,created_at',
-          ...links.map(l => `"${l.url}","${l.title}","${l.short_key || ''}","${(l.tags || []).join(';')}","${l.category}",${l.click_count},"${l.created_at}"`)
+          ...links.map(l => [
+            csvCell(l.url), csvCell(l.title), csvCell(l.short_key), csvCell((l.tags || []).join(';')),
+            csvCell(l.category), String(l.click_count ?? 0), csvCell(l.created_at),
+          ].join(','))
         ].join('\n');
         downloadFile(csv, 'workos-links.csv', 'text/csv');
       } else {

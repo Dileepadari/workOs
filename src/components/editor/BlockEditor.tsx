@@ -2,10 +2,9 @@ import { useMemo } from 'react';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/shadcn';
 import type { PartialBlock } from '@blocknote/core';
-import { api } from '@/lib/api';
+import { attachments } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { blocksToPlainText, emptyDocument } from '@/lib/blockContent';
-import { getToken, decodeToken } from '@/lib/authToken';
 
 interface Props {
   content: unknown;
@@ -28,29 +27,10 @@ export function BlockEditor({ content, onChange, editable = true, workspaceId, e
 
   const editor = useCreateBlockNote({
     initialContent,
-    uploadFile: async (file: File) => {
-      // The storage function requires a single flat filename (no slashes) -
-      // fold workspace/entity into the name itself for traceability instead
-      // of a directory path; the `attachments` table is the real source of
-      // truth for that structure.
-      const safeOriginal = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fileName = `${workspaceId}-${entityType}-${entityId}-${crypto.randomUUID()}-${safeOriginal}`;
-      const url = await api.upload(file, { fileName });
-      const token = getToken();
-      const payload = token ? decodeToken(token) : null;
-      if (payload) {
-        api.insert('attachments', workspaceId, {
-          entity_type: entityType,
-          entity_id: entityId,
-          url,
-          file_name: file.name,
-          mime_type: file.type,
-          size_bytes: file.size,
-          uploaded_by: payload.sub,
-        }).catch(() => {});
-      }
-      return url;
-    },
+    // Files dropped/pasted into the editor land in the same `attachments`
+    // table as ones added through the Files panel, so both show up in one
+    // place per entity.
+    uploadFile: async (file: File) => (await attachments.upload(file, { workspaceId, entityType, entityId })).url,
   });
 
   return (

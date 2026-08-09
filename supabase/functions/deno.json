@@ -1,0 +1,5 @@
+{
+  "//": "Edge Functions run on Deno, inside this directory only. Without this file, `deno check` walks up to the project root, finds the frontend's package.json/node_modules, and tries to resolve npm: specifiers against Node's tree instead of the registry.",
+  "nodeModulesDir": "none",
+  "lock": false
+}

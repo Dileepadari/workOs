@@ -21,7 +21,10 @@ const BEEP_DURATION = 200;
 
 function playBeep(count = 3) {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Safari only exposes the prefixed constructor.
+    const AudioContextCtor = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioContextCtor();
     for (let i = 0; i < count; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -34,7 +37,10 @@ function playBeep(count = 3) {
       osc.start(start);
       osc.stop(start + BEEP_DURATION / 1000);
     }
-  } catch {}
+  } catch {
+    // No Web Audio support, or autoplay blocked - the timer still works
+    // without the chime, so there's nothing useful to do here.
+  }
 }
 
 function sendNotification(title: string, body: string) {

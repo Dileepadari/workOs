@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pin, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { comments as commentsApi, reactions as reactionsApi, type Comment, type Reaction } from '@/lib/api';
+import { comments as commentsApi, reactions as reactionsApi, attachments as attachmentsApi, type Comment, type Reaction } from '@/lib/api';
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { Emoji } from '@/components/Emoji';
+import { AttachmentsPanel } from '@/components/AttachmentsPanel';
 import type { Member } from '@/components/tasks/types';
 
 interface Props {
@@ -28,6 +29,7 @@ export function CommentsPanel({ workspaceId, entityType, entityId, projectId, cu
   const [reactionRows, setReactionRows] = useState<Reaction[]>([]);
   const [composerDraftId, setComposerDraftId] = useState(crypto.randomUUID());
   const [pendingContent, setPendingContent] = useState<{ blocks: unknown[]; text: string } | null>(null);
+  const [draftFileCount, setDraftFileCount] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = async () => {
@@ -42,9 +44,20 @@ export function CommentsPanel({ workspaceId, entityType, entityId, projectId, cu
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [workspaceId, entityType, entityId]);
 
   const handlePost = async () => {
-    if (!pendingContent?.text.trim()) return;
-    await commentsApi.create(workspaceId, entityType, entityId, pendingContent.blocks, pendingContent.text, projectId);
+    // A file-only message is legitimate ("here's the doc"), so allow posting
+    // with empty text as long as something was attached.
+    if (!pendingContent?.text.trim() && draftFileCount === 0) return;
+    const comment = await commentsApi.create(
+      workspaceId, entityType, entityId,
+      pendingContent?.blocks ?? [], pendingContent?.text ?? '', projectId,
+    );
+    // The server mints the comment id, so files staged against the composer's
+    // draft id have to be re-pointed at the real one now that it exists.
+    if (draftFileCount > 0) {
+      await attachmentsApi.reassign({ workspaceId, entityType: 'comment', entityId: composerDraftId }, comment.id);
+    }
     setPendingContent(null);
+    setDraftFileCount(0);
     setComposerDraftId(crypto.randomUUID());
     load();
   };
@@ -96,9 +109,24 @@ export function CommentsPanel({ workspaceId, entityType, entityId, projectId, cu
             entityId={composerDraftId}
             className="min-h-[100px] rounded-md border border-border"
           />
+          <AttachmentsPanel
+            key={composerDraftId}
+            workspaceId={workspaceId}
+            entityType="comment"
+            entityId={composerDraftId}
+            label={null}
+            compact
+            onChange={(rows) => setDraftFileCount(rows.length)}
+          />
           <p className="text-[10px] text-muted-foreground">Type @username to mention a teammate</p>
         </div>
-        <Button onClick={handlePost} disabled={!pendingContent?.text.trim()} className="shrink-0 self-start">Post</Button>
+        <Button
+          onClick={handlePost}
+          disabled={!pendingContent?.text.trim() && draftFileCount === 0}
+          className="shrink-0 self-start"
+        >
+          Post
+        </Button>
       </div>
 
       {list.map((c, index) => {
@@ -137,21 +165,25 @@ export function CommentsPanel({ workspaceId, entityType, entityId, projectId, cu
                     entityId={c.id}
                     className="min-h-[80px] rounded-md border border-border"
                   />
+                  <AttachmentsPanel workspaceId={workspaceId} entityType="comment" entityId={c.id} label={null} compact />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleSaveEdit}>Save</Button>
                     <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setPendingContent(null); }}>Cancel</Button>
                   </div>
                 </div>
               ) : (
-                <BlockEditor
-                  key={c.id}
-                  content={c.content_json}
-                  onChange={() => {}}
-                  editable={false}
-                  workspaceId={workspaceId}
-                  entityType={entityType}
-                  entityId={c.id}
-                />
+                <>
+                  <BlockEditor
+                    key={c.id}
+                    content={c.content_json}
+                    onChange={() => {}}
+                    editable={false}
+                    workspaceId={workspaceId}
+                    entityType={entityType}
+                    entityId={c.id}
+                  />
+                  <AttachmentsPanel workspaceId={workspaceId} entityType="comment" entityId={c.id} label={null} readOnly className="mt-2" />
+                </>
               )}
 
               <div className="mt-2 flex flex-wrap items-center gap-1">

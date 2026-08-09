@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, Edit2, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, FileText, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -15,6 +15,7 @@ import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
 import { preventAccidentalDialogClose } from '@/lib/utils';
 import { CardGridSkeleton } from '@/components/skeletons/primitives';
+import { AttachmentsPanel } from '@/components/AttachmentsPanel';
 
 interface Note {
   id: string;
@@ -34,6 +35,9 @@ export default function Notes() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Note | null>(null);
+  // Read-only view - the card clamps the preview to 4 lines, and the edit
+  // dialog used to be the only way to read the rest.
+  const [viewing, setViewing] = useState<Note | null>(null);
   const [draftId, setDraftId] = useState<string>('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; noteId: string | null }>({ open: false, noteId: null });
   const [title, setTitle] = useState('');
@@ -120,6 +124,9 @@ export default function Notes() {
                   />
                 )}
               </div>
+              {wsId && draftId && (
+                <AttachmentsPanel workspaceId={wsId} entityType="notes" entityId={draftId} label="Files" compact />
+              )}
               <Button type="submit" className="w-full">{editing ? 'Save' : 'Create Note'}</Button>
             </form>
           </DialogContent>
@@ -147,20 +154,73 @@ export default function Notes() {
                     <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/10">
                       <FileText className="h-3.5 w-3.5 text-accent" />
                     </div>
-                    <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-foreground">{n.title}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setViewing(n)}
+                      className="line-clamp-2 flex-1 text-left text-sm font-semibold text-foreground hover:text-primary"
+                    >
+                      {n.title}
+                    </button>
                   </div>
-                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <Button variant="ghost" size="sm" className="h-7 w-7" aria-label="View note" onClick={() => setViewing(n)}><Eye className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="sm" className="h-7 w-7" onClick={() => handleEdit(n)}><Edit2 className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="sm" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(n.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
-                {(n.content_text || n.content) && <p className="mb-3 flex-1 line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground">{n.content_text || n.content}</p>}
+                {(n.content_text || n.content) && (
+                  <button
+                    type="button"
+                    onClick={() => setViewing(n)}
+                    title="Read full note"
+                    className="mb-3 flex-1 line-clamp-4 whitespace-pre-wrap text-left text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {n.content_text || n.content}
+                  </button>
+                )}
                 <p className="text-[10px] text-muted-foreground">Updated {formatDistanceToNow(new Date(n.updated_at), { addSuffix: true })}</p>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Full note, rendered rather than clamped - read without entering edit mode. */}
+      <Dialog open={viewing !== null} onOpenChange={(o) => { if (!o) setViewing(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          {viewing && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="pr-6 text-left">{viewing.title}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-[11px] text-muted-foreground">
+                  Updated {formatDistanceToNow(new Date(viewing.updated_at), { addSuffix: true })}
+                </p>
+                {wsId && (
+                  <BlockEditor
+                    key={`view-${viewing.id}`}
+                    content={viewing.content_json ?? legacyTextToBlocks(viewing.content)}
+                    onChange={() => {}}
+                    editable={false}
+                    workspaceId={wsId}
+                    entityType="notes"
+                    entityId={viewing.id}
+                  />
+                )}
+                {wsId && (
+                  <AttachmentsPanel workspaceId={wsId} entityType="notes" entityId={viewing.id} label="Files" readOnly />
+                )}
+                <div className="flex gap-2 border-t border-border pt-3">
+                  <Button size="sm" onClick={() => { const note = viewing; setViewing(null); handleEdit(note); }}>
+                    <Edit2 className="mr-1 h-3 w-3" />Edit
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={deleteConfirm.open}

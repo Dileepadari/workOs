@@ -1,0 +1,8 @@
+{
+  "//": "Tests live outside src/, so tsconfig.app.json (which only includes src) doesn't see them. `npm run typecheck` runs both projects so test code is type-checked too.",
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["tests", "src"]
+}

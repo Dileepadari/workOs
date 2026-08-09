@@ -5,7 +5,7 @@
 // sibling `portfolio` project's src/lib/adminApi.ts, extended for
 // multi-user workspaces.
 
-import { getToken, clearToken } from './authToken';
+import { getToken, clearToken, decodeToken } from './authToken';
 
 const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workos`;
 
@@ -43,6 +43,25 @@ async function dataCall(
     body: JSON.stringify({ table, operation, workspace_id: workspaceId, ...extra }),
   });
   return body.data;
+}
+
+/** Current user id from the stored JWT, for tables that want an explicit
+ *  actor column the /data gateway doesn't stamp (e.g. attachments.uploaded_by). */
+function currentUserId(): string | null {
+  const token = getToken();
+  return token ? (decodeToken(token)?.sub ?? null) : null;
+}
+
+/**
+ * Builds the flat filename the storage server requires: letters, digits,
+ * '.', '_' and '-' only, no slashes. Storage has no folder/tenancy concept,
+ * so workspace/entity are folded into the name itself for traceability -
+ * the `attachments` table is the real source of truth for that structure.
+ */
+export function storageFileName(file: File, scope?: { workspaceId: string; entityType: string; entityId: string }): string {
+  const safeOriginal = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const prefix = scope ? `${scope.workspaceId}-${scope.entityType}-${scope.entityId}-` : '';
+  return `${prefix}${crypto.randomUUID()}-${safeOriginal}`;
 }
 
 export const auth = {
@@ -254,8 +273,7 @@ export const api = {
   // only, no slashes - so this always sanitizes rather than trusting the
   // caller's original file.name.
   upload: async (file: File, opts: { fileName?: string } = {}): Promise<string> => {
-    const safeOriginal = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const fileName = opts.fileName || `${crypto.randomUUID()}-${safeOriginal}`;
+    const fileName = opts.fileName || storageFileName(file);
     const buffer = await file.arrayBuffer();
     const token = getToken();
     const res = await fetch(`${FUNCTIONS_BASE}/upload`, {
@@ -263,6 +281,7 @@ export const api = {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'x-file-name': fileName,
+        'x-file-type': file.type.startsWith('image/') ? 'images' : 'documents',
         'Content-Type': 'application/octet-stream',
       },
       body: buffer,
@@ -276,5 +295,123 @@ export const api = {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || `Upload failed (${res.status})`);
     return body.url as string;
+  },
+};
+
+/**
+ * A vault entry. Note there is no `value` field: list responses never carry
+ * the secret itself - it's fetched one at a time via `secrets.reveal`, which
+ * is the only route that decrypts.
+ */
+export interface Secret {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  username: string | null;
+  url: string | null;
+  tags: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SecretInput {
+  name: string;
+  value?: string;
+  description?: string | null;
+  category?: string;
+  username?: string | null;
+  url?: string | null;
+  tags?: string[];
+}
+
+export const secrets = {
+  list: async (workspaceId: string): Promise<Secret[]> =>
+    (await call(`/secrets?workspace_id=${workspaceId}`)).data,
+
+  create: async (workspaceId: string, input: SecretInput & { value: string }): Promise<Secret> =>
+    (await call('/secrets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_id: workspaceId, ...input }),
+    })).data,
+
+  /** Omit `value` to edit the label/metadata without retyping the secret. */
+  update: async (secretId: string, input: SecretInput): Promise<Secret> =>
+    (await call(`/secrets/${secretId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })).data,
+
+  remove: async (secretId: string): Promise<void> => {
+    await call(`/secrets/${secretId}`, { method: 'DELETE' });
+  },
+
+  /** Decrypts server-side and returns the plaintext for this one entry. */
+  reveal: async (secretId: string): Promise<string> =>
+    (await call(`/secrets/${secretId}/reveal`, { method: 'POST' })).value,
+};
+
+export interface Attachment {
+  id: string;
+  workspace_id: string;
+  entity_type: string;
+  entity_id: string;
+  url: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export interface AttachmentScope {
+  workspaceId: string;
+  entityType: string;
+  entityId: string;
+}
+
+/**
+ * Files attached to any entity (project, task, note, comment, meeting...).
+ * The bytes go to Oracle storage via `api.upload`; this table is what scopes
+ * them to a workspace/entity, since storage itself has no tenancy concept.
+ */
+export const attachments = {
+  list: (scope: AttachmentScope): Promise<Attachment[]> =>
+    api.select<Attachment>('attachments', scope.workspaceId, {
+      entity_type: scope.entityType,
+      entity_id: scope.entityId,
+    }),
+
+  /** Uploads the bytes, then records the metadata row. */
+  upload: async (file: File, scope: AttachmentScope): Promise<Attachment> => {
+    const url = await api.upload(file, { fileName: storageFileName(file, scope) });
+    return api.insert<Attachment>('attachments', scope.workspaceId, {
+      entity_type: scope.entityType,
+      entity_id: scope.entityId,
+      url,
+      file_name: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      uploaded_by: currentUserId(),
+    });
+  },
+
+  remove: (workspaceId: string, id: string): Promise<void> => api.remove('attachments', workspaceId, id),
+
+  /**
+   * Re-points attachments from a client-side draft id onto the real row id.
+   * Needed where the server mints the id (comments) - everywhere else the
+   * draft uuid is inserted as the row's own id, so nothing to move.
+   */
+  reassign: async (scope: AttachmentScope, toEntityId: string): Promise<void> => {
+    if (scope.entityId === toEntityId) return;
+    const rows = await attachments.list(scope);
+    await Promise.all(
+      rows.map((row) => api.update('attachments', scope.workspaceId, row.id, { entity_id: toEntityId })),
+    );
   },
 };

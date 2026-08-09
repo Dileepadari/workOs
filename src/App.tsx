@@ -18,6 +18,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import Tasks from "./pages/Tasks";
 import Notes from "./pages/Notes";
 import Resources from "./pages/Resources";
+import Secrets from "./pages/Secrets";
 import DailyLog from "./pages/DailyLog";
 import SettingsPage from "./pages/SettingsPage";
 import TeamPage from "./pages/TeamPage";
@@ -71,6 +72,7 @@ function AppRoutes() {
           <Route path="tasks" element={<Tasks />} />
           <Route path="notes" element={<Notes />} />
           <Route path="resources" element={<Resources />} />
+          <Route path="secrets" element={<Secrets />} />
           <Route path="log" element={<DailyLog />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="focus" element={<FocusMode />} />

@@ -6,15 +6,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ExternalLink, Search, Link2, Copy, Edit2 } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Search, Link2, Copy, Edit2, Eye } from 'lucide-react';
+import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { preventAccidentalDialogClose } from '@/lib/utils';
 import { ResourcesSkeleton } from '@/components/skeletons/pages';
+import { AttachmentsPanel } from '@/components/AttachmentsPanel';
+import { UploadUrlButton } from '@/components/UploadUrlButton';
 
 interface LinkItem {
   id: string;
@@ -56,6 +60,10 @@ export default function Resources() {
   // Dialog state
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
+  const [draftId, setDraftId] = useState('');
+  // Read-only detail view - the card truncates long descriptions, and opening
+  // the edit form just to read one was the only way to see the rest.
+  const [viewingLink, setViewingLink] = useState<LinkItem | null>(null);
 
   // Delete confirmation state
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<{ open: boolean; linkId: string | null }>({ open: false, linkId: null });
@@ -93,6 +101,7 @@ export default function Resources() {
       toast({ title: 'Link updated' });
     } else {
       await api.insert('links', wsId, {
+        id: draftId,
         url: linkForm.url,
         title: linkForm.title,
         short_key: linkForm.short_key || null,
@@ -108,8 +117,18 @@ export default function Resources() {
     fetchData();
   };
 
+  const openNewLink = () => {
+    setEditingLink(null);
+    setLinkForm({ url: '', title: '', short_key: '', tags: '', description: '', category: 'other' });
+    // Inserted as the row's own id, so files uploaded before saving already
+    // belong to the right link.
+    setDraftId(crypto.randomUUID());
+    setLinkDialogOpen(true);
+  };
+
   const handleEditLink = (link: LinkItem) => {
     setEditingLink(link);
+    setDraftId(link.id);
     setLinkForm({
       url: link.url,
       title: link.title,
@@ -168,27 +187,43 @@ export default function Resources() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">{links.length} {links.length === 1 ? 'link' : 'links'} saved</p>
-          <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+          <Dialog open={linkDialogOpen} onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setEditingLink(null); }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={openNewLink}>
                 <Plus className="mr-2 h-4 w-4" />
                 Save Link
               </Button>
             </DialogTrigger>
-            <DialogContent {...preventAccidentalDialogClose}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
               <DialogHeader>
                 <DialogTitle>{editingLink ? 'Edit Link' : 'Save a Link'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmitLink} className="space-y-4">
                 <div className="space-y-2">
                   <Label>URL</Label>
-                  <Input
-                    type="url"
-                    value={linkForm.url}
-                    onChange={e => setLinkForm({ ...linkForm, url: e.target.value })}
-                    required
-                    placeholder="https://"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="url"
+                      value={linkForm.url}
+                      onChange={e => setLinkForm({ ...linkForm, url: e.target.value })}
+                      required
+                      placeholder="https://"
+                      className="flex-1"
+                    />
+                    {wsId && draftId && (
+                      <UploadUrlButton
+                        workspaceId={wsId}
+                        entityType="links"
+                        entityId={draftId}
+                        onUploaded={(file) => setLinkForm(prev => ({
+                          ...prev,
+                          url: file.url,
+                          title: prev.title || file.file_name,
+                        }))}
+                      />
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Paste a link, or upload a file to store and link it.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Title</Label>
@@ -233,11 +268,16 @@ export default function Resources() {
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
-                  <Input
+                  <Textarea
                     value={linkForm.description}
                     onChange={e => setLinkForm({ ...linkForm, description: e.target.value })}
+                    rows={4}
+                    placeholder="What is this, and why did you save it?"
                   />
                 </div>
+                {wsId && draftId && (
+                  <AttachmentsPanel workspaceId={wsId} entityType="links" entityId={draftId} label="Files" compact />
+                )}
                 <Button type="submit" className="w-full">
                   {editingLink ? 'Update Link' : 'Save Link'}
                 </Button>
@@ -320,7 +360,16 @@ export default function Resources() {
                     <Badge className={`shrink-0 text-xs capitalize ${categoryColors[l.category] || ''}`}>{l.category}</Badge>
                   </div>
 
-                  {l.description && <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">{l.description}</p>}
+                  {l.description && (
+                    <button
+                      type="button"
+                      onClick={() => setViewingLink(l)}
+                      title="Show full description"
+                      className="mb-2 line-clamp-2 text-left text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {l.description}
+                    </button>
+                  )}
 
                   {l.tags.length > 0 && (
                     <div className="mb-3 flex flex-wrap gap-1">
@@ -337,7 +386,8 @@ export default function Resources() {
                       )}
                       <span className="text-[10px] text-muted-foreground">{l.click_count} opens</span>
                     </div>
-                    <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="View details" onClick={() => setViewingLink(l)}><Eye className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyLink(l.url)}><Copy className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenLink(l)}><ExternalLink className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditLink(l)}><Edit2 className="h-3 w-3" /></Button>
@@ -350,6 +400,73 @@ export default function Resources() {
           </div>
         )}
       </div>
+
+      {/* Read-only detail view: full description, every tag, and any files. */}
+      <Dialog open={viewingLink !== null} onOpenChange={(o) => { if (!o) setViewingLink(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          {viewingLink && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="pr-6 text-left">{viewingLink.title}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={`text-xs capitalize ${categoryColors[viewingLink.category] || ''}`}>{viewingLink.category}</Badge>
+                  {viewingLink.short_key && (
+                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{viewingLink.short_key}</code>
+                  )}
+                  <span className="text-xs text-muted-foreground">{viewingLink.click_count} opens</span>
+                  <span className="text-xs text-muted-foreground">· saved {format(new Date(viewingLink.created_at), 'MMM d, yyyy')}</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">URL</Label>
+                  <a
+                    href={viewingLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block break-all text-sm text-primary hover:underline"
+                  >
+                    {viewingLink.url}
+                  </a>
+                </div>
+
+                {viewingLink.description && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Description</Label>
+                    <p className="whitespace-pre-wrap text-sm text-foreground">{viewingLink.description}</p>
+                  </div>
+                )}
+
+                {viewingLink.tags.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Tags</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {viewingLink.tags.map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
+                    </div>
+                  </div>
+                )}
+
+                {wsId && (
+                  <AttachmentsPanel workspaceId={wsId} entityType="links" entityId={viewingLink.id} label="Files" readOnly />
+                )}
+
+                <div className="flex gap-2 border-t border-border pt-3">
+                  <Button size="sm" onClick={() => { handleOpenLink(viewingLink); setViewingLink(null); }}>
+                    Open <ExternalLink className="ml-1 h-3 w-3" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleCopyLink(viewingLink.url)}>
+                    <Copy className="mr-1 h-3 w-3" />Copy
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => { const link = viewingLink; setViewingLink(null); handleEditLink(link); }}>
+                    <Edit2 className="mr-1 h-3 w-3" />Edit
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <ConfirmDialog

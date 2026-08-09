@@ -13,25 +13,36 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CheckSquare, FileText, Flag, LinkIcon, MessageSquare, Calendar, Users, Plus, Trash2, ExternalLink, Clock, Edit2, ArrowRight, CheckCircle2, Circle, GitBranch, CalendarClock } from 'lucide-react';
+import { ArrowLeft, CheckSquare, FileText, Flag, LinkIcon, MessageSquare, Calendar, Users, Plus, Trash2, ExternalLink, Clock, Edit2, ArrowRight, CheckCircle2, Circle, GitBranch, CalendarClock, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { TASK_STATUSES, TASK_STATUS_LABELS, PRIORITY_COLORS, PROJECT_STATUS_COLORS, getNextStatus } from '@/lib/taskMeta';
+import { TASK_STATUSES, TASK_STATUS_LABELS, PRIORITY_COLORS, PROJECT_STATUS_COLORS, getNextStatus, type TaskStatus, type TaskPriority } from '@/lib/taskMeta';
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { legacyTextToBlocks } from '@/lib/blockContent';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { AttachmentsPanel } from '@/components/AttachmentsPanel';
+import { UploadUrlButton } from '@/components/UploadUrlButton';
+import { fileKind } from '@/lib/fileMeta';
 import { preventAccidentalDialogClose } from '@/lib/utils';
 import { ProjectDetailSkeleton } from '@/components/skeletons/pages';
 import type { Member } from '@/components/tasks/types';
 
 interface Project { id: string; name: string; description: string | null; status: string; color: string; slug: string | null; type: string; tags: string[]; start_date: string | null; target_end_date: string | null; repo_url: string | null; status_note: string | null; created_at: string; updated_at: string; }
-interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; due_time: string | null; time_estimate_min: number | null; description: string | null; sort_order: number; created_at: string; }
+interface Task { id: string; title: string; status: TaskStatus; priority: TaskPriority; due_date: string | null; due_time: string | null; time_estimate_min: number | null; description: string | null; sort_order: number; created_at: string; }
 interface Milestone { id: string; title: string; date: string; is_completed: boolean; }
 interface Resource { id: string; title: string; url: string | null; type: string; tags: string[]; }
 interface Meeting { id: string; title: string; scheduled_at: string; attendees: string | null; agenda_html: string | null; agenda_json: unknown; agenda_text: string | null; notes_html: string | null; notes_text: string | null; action_items: string | null; }
+
+const RESOURCE_TYPES = ['link', 'pdf', 'image', 'doc', 'code', 'video', 'note'];
+
+// Picks the closest resource type for an uploaded file, so the badge matches
+// what was actually attached instead of defaulting to "link".
+const RESOURCE_TYPE_FOR_KIND: Partial<Record<ReturnType<typeof fileKind>, string>> = {
+  image: 'image', pdf: 'pdf', doc: 'doc', sheet: 'doc', code: 'code', video: 'video',
+};
 
 const priorityColors = PRIORITY_COLORS;
 const statusColors = PROJECT_STATUS_COLORS;
@@ -253,6 +264,7 @@ export default function ProjectDetail() {
           <TabsTrigger value="tasks" className="text-xs sm:text-sm"><CheckSquare className="mr-1 h-3 w-3" />Tasks ({totalTasks})</TabsTrigger>
           <TabsTrigger value="milestones" className="text-xs sm:text-sm"><Flag className="mr-1 h-3 w-3" />Milestones</TabsTrigger>
           <TabsTrigger value="resources" className="text-xs sm:text-sm"><LinkIcon className="mr-1 h-3 w-3" />Resources</TabsTrigger>
+          <TabsTrigger value="files" className="text-xs sm:text-sm"><Paperclip className="mr-1 h-3 w-3" />Files</TabsTrigger>
           <TabsTrigger value="discussions" className="text-xs sm:text-sm"><MessageSquare className="mr-1 h-3 w-3" />Discussions</TabsTrigger>
           <TabsTrigger value="meetings" className="text-xs sm:text-sm"><Calendar className="mr-1 h-3 w-3" />Meetings</TabsTrigger>
           <TabsTrigger value="collaborators" className="text-xs sm:text-sm"><Users className="mr-1 h-3 w-3" />Access</TabsTrigger>
@@ -460,13 +472,33 @@ export default function ProjectDetail() {
                 <DialogHeader><DialogTitle>{editingResource ? 'Edit Resource' : 'Add Resource'}</DialogTitle></DialogHeader>
                 <form onSubmit={addResource} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={resForm.title} onChange={e => setResForm({ ...resForm, title: e.target.value })} required /></div>
-                  <div className="space-y-2"><Label>URL</Label><Input value={resForm.url} onChange={e => setResForm({ ...resForm, url: e.target.value })} placeholder="https://" /></div>
+                  <div className="space-y-2">
+                    <Label>URL</Label>
+                    <div className="flex gap-2">
+                      <Input value={resForm.url} onChange={e => setResForm({ ...resForm, url: e.target.value })} placeholder="https://" className="flex-1" />
+                      {wsId && (
+                        <UploadUrlButton
+                          workspaceId={wsId}
+                          entityType="resources"
+                          entityId={project.id}
+                          label="Upload"
+                          onUploaded={(file) => setResForm(prev => ({
+                            ...prev,
+                            url: file.url,
+                            title: prev.title || file.file_name,
+                            type: RESOURCE_TYPE_FOR_KIND[fileKind(file.mime_type, file.file_name)] ?? prev.type,
+                          }))}
+                        />
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Paste a link, or upload a file to store it here.</p>
+                  </div>
                   <div className="space-y-2">
                     <Label>Type</Label>
                     <Select value={resForm.type} onValueChange={v => setResForm({ ...resForm, type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {['link', 'pdf', 'image', 'doc', 'code', 'video', 'note'].map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                        {RESOURCE_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -494,6 +526,23 @@ export default function ProjectDetail() {
             ))}
           </div>
           {resources.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No resources yet</p>}
+        </TabsContent>
+
+        {/* Files - documents, specs, designs and anything else relevant to
+            the project as a whole (per-task/note files live on those items). */}
+        <TabsContent value="files" className="space-y-4 animate-fade-in">
+          <Card>
+            <CardContent className="p-4 sm:p-5">
+              {wsId && (
+                <AttachmentsPanel
+                  workspaceId={wsId}
+                  entityType="project"
+                  entityId={project.id}
+                  label="Project files"
+                />
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Discussions */}
@@ -535,6 +584,9 @@ export default function ProjectDetail() {
                       />
                     )}
                   </div>
+                  {wsId && meetingDraftId && (
+                    <AttachmentsPanel workspaceId={wsId} entityType="meetings" entityId={meetingDraftId} label="Files" compact />
+                  )}
                   <Button type="submit" className="w-full">{editingMeeting ? 'Update' : 'Add'}</Button>
                 </form>
               </DialogContent>

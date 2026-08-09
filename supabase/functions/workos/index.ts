@@ -19,6 +19,10 @@ import bcrypt from "npm:bcryptjs@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const JWT_SECRET = Deno.env.get("WORKOS_JWT_SECRET")!;
+// Encrypts the `secrets` vault at rest. Separate from JWT_SECRET on purpose:
+// rotating signing keys (which only invalidates sessions) must not be the
+// same action as rotating the key that makes every stored secret readable.
+const SECRETS_KEY = Deno.env.get("WORKOS_SECRETS_KEY") ?? "";
 
 // File uploads proxy to the real function living on the user's self-hosted
 // Supabase box (/mnt/storage/supabase/functions/index.ts on
@@ -34,10 +38,32 @@ const JWT_SECRET = Deno.env.get("WORKOS_JWT_SECRET")!;
 // folder regardless of file type, and requires flat filenames (no `/`) -
 // see handleUpload below.
 const ORACLE_UPLOAD_BASE_URL = Deno.env.get("ORACLE_UPLOAD_BASE_URL") ?? "https://supabase.dileepadari.dev";
+const ORACLE_UPLOAD_PATH = Deno.env.get("ORACLE_UPLOAD_PATH") ?? "/functions/v1/upload";
+// Reads are served by Caddy from a *different* host than the upload endpoint.
+// The upload response's own `url` field points at the wrong domain (a known
+// bug on the storage box, worked around the same way in the sibling
+// `portfolio` project's admin function) - so the public host always comes
+// from here, never from the response.
+const ORACLE_PUBLIC_BASE_URL = Deno.env.get("ORACLE_PUBLIC_BASE_URL") ?? "https://mystorage.dileepadari.dev";
 const ORACLE_APP_NAME = Deno.env.get("ORACLE_APP_NAME") ?? "workos";
+// The self-hosted function writes everything under this one folder
+// regardless of file type; only used to rebuild a public URL when the
+// upload response doesn't tell us where the file actually landed.
+const ORACLE_STORAGE_FOLDER = Deno.env.get("ORACLE_STORAGE_FOLDER") ?? "images";
+const ORACLE_UPLOAD_API_KEY = Deno.env.get("ORACLE_UPLOAD_API_KEY") ?? "";
 const SELFHOST_JWT_SECRET = Deno.env.get("SELFHOST_JWT_SECRET") ?? "";
 
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+// The generic /data gateway addresses tables by a runtime string, so
+// supabase-js has no per-table types to infer from and its deeply generic
+// builder chain exceeds the compiler's instantiation-depth limit (TS2589).
+// Only these dynamic paths opt out of that inference - every named-table
+// query in this file keeps it.
+// deno-lint-ignore no-explicit-any
+function dynamicTable(table: string): any {
+  return db.from(table);
+}
 
 const JWT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
@@ -94,10 +120,16 @@ function base64UrlEncode(bytes: Uint8Array): string {
   return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function base64UrlDecode(str: string): Uint8Array {
+// Returns Uint8Array<ArrayBuffer> rather than the default
+// Uint8Array<ArrayBufferLike>: Web Crypto's BufferSource excludes
+// SharedArrayBuffer-backed views, so the looser type won't pass to
+// crypto.subtle.verify/decrypt.
+function base64UrlDecode(str: string): Uint8Array<ArrayBuffer> {
   const padded = str.replace(/-/g, "+").replace(/_/g, "/").padEnd(str.length + ((4 - (str.length % 4)) % 4), "=");
   const binary = atob(padded);
-  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 async function hmacKey(secret: string) {
@@ -410,7 +442,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
     } else if (operation === "insert") {
       projectId = payload?.project_id ?? null;
     } else if (id) {
-      const { data: existingRow } = await db.from(table).select("project_id").eq(idColumn, id).maybeSingle();
+      const { data: existingRow } = await dynamicTable(table).select("project_id").eq(idColumn, id).maybeSingle();
       projectId = existingRow?.project_id ?? null;
     } else if (operation === "select") {
       projectId = (filters?.project_id as string | undefined) ?? null;
@@ -426,7 +458,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
   }
 
   if (operation === "select") {
-    let query = db.from(table).select("*").eq("workspace_id", workspace_id);
+    let query = dynamicTable(table).select("*").eq("workspace_id", workspace_id);
     if (config.personalOnly) query = query.eq("created_by", user.sub);
     if (filters && typeof filters === "object") {
       for (const [key, value] of Object.entries(filters)) query = query.eq(key, value as string);
@@ -446,7 +478,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
 
   if (operation === "insert") {
     const rows = Array.isArray(payload) ? payload.map(stamp) : stamp(payload);
-    const query = db.from(table).insert(rows).select();
+    const query = dynamicTable(table).insert(rows).select();
     const { data, error } = Array.isArray(payload) ? await query : await query.single();
     if (error) return json({ error: error.message }, 400);
     return json({ data });
@@ -454,7 +486,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
 
   if (operation === "upsert") {
     const rows = Array.isArray(payload) ? payload.map(stamp) : stamp(payload);
-    const query = db.from(table).upsert(rows, { onConflict: idColumn }).select();
+    const query = dynamicTable(table).upsert(rows, { onConflict: idColumn }).select();
     const { data, error } = Array.isArray(payload) ? await query : await query.single();
     if (error) return json({ error: error.message }, 400);
     return json({ data });
@@ -472,7 +504,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
       priorAssigneeId = existingTask?.assignee_id ?? null;
     }
 
-    let query = db.from(table).update(payload).eq(idColumn, id).eq("workspace_id", workspace_id);
+    let query = dynamicTable(table).update(payload).eq(idColumn, id).eq("workspace_id", workspace_id);
     if (config.personalOnly) query = query.eq("created_by", user.sub);
     const { data, error } = await query.select().single();
     if (error) return json({ error: error.message }, 400);
@@ -494,7 +526,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
 
   if (operation === "delete") {
     if (!id) return json({ error: "Missing id" }, 400);
-    let query = db.from(table).delete().eq(idColumn, id).eq("workspace_id", workspace_id);
+    let query = dynamicTable(table).delete().eq(idColumn, id).eq("workspace_id", workspace_id);
     if (config.personalOnly) query = query.eq("created_by", user.sub);
     const { error } = await query;
     if (error) return json({ error: error.message }, 400);
@@ -732,6 +764,139 @@ async function handleListActivity(req: Request, user: AuthedUser): Promise<Respo
   return json({ data });
 }
 
+// --- Secrets vault --------------------------------------------------------
+//
+// Stored encrypted, not hashed: the feature is "masked until I click reveal",
+// which a one-way hash could never satisfy. AES-GCM (authenticated, so a
+// tampered ciphertext fails to decrypt rather than returning garbage) with a
+// key derived from WORKOS_SECRETS_KEY. Deliberately kept off the generic
+// /data gateway so `value_encrypted` can be stripped from every list response
+// and decryption only happens on an explicit reveal.
+
+const SECRET_FIELDS = "id, workspace_id, name, description, category, username, url, tags, created_by, created_at, updated_at";
+
+async function secretsKey(): Promise<CryptoKey> {
+  // SHA-256 of the configured passphrase gives AES-GCM the exact 256 bits it
+  // wants without requiring the operator to supply a hex key of exact length.
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(SECRETS_KEY));
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+async function encryptSecret(plaintext: string): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    await secretsKey(),
+    new TextEncoder().encode(plaintext),
+  );
+  return `v1.${base64UrlEncode(iv)}.${base64UrlEncode(new Uint8Array(ciphertext))}`;
+}
+
+async function decryptSecret(stored: string): Promise<string> {
+  const [version, encodedIv, encodedCiphertext] = stored.split(".");
+  if (version !== "v1" || !encodedIv || !encodedCiphertext) throw new Error("Unrecognized secret format");
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: base64UrlDecode(encodedIv) },
+    await secretsKey(),
+    base64UrlDecode(encodedCiphertext),
+  );
+  return new TextDecoder().decode(plaintext);
+}
+
+/** Secrets are workspace-wide and sensitive - guests never get access. */
+async function requireSecretsAccess(userId: string, workspaceId: string): Promise<Response | null> {
+  if (!SECRETS_KEY) return json({ error: "Server is missing WORKOS_SECRETS_KEY - the secrets vault is not configured" }, 500);
+  const role = await getMembership(userId, workspaceId);
+  if (!role) return json({ error: "Not a member of this workspace" }, 403);
+  if (role === "guest") return json({ error: "Guests cannot access the secrets vault" }, 403);
+  return null;
+}
+
+async function handleListSecrets(req: Request, user: AuthedUser): Promise<Response> {
+  const workspace_id = new URL(req.url).searchParams.get("workspace_id");
+  if (!workspace_id) return json({ error: "Missing workspace_id" }, 400);
+  const denied = await requireSecretsAccess(user.sub, workspace_id);
+  if (denied) return denied;
+
+  // Note the explicit column list - `value_encrypted` must never leave here
+  // except through the reveal route.
+  const { data, error } = await db
+    .from("secrets").select(SECRET_FIELDS)
+    .eq("workspace_id", workspace_id)
+    .order("created_at", { ascending: false });
+  if (error) return json({ error: error.message }, 400);
+  return json({ data });
+}
+
+async function handleCreateSecret(req: Request, user: AuthedUser): Promise<Response> {
+  const body = await req.json().catch(() => ({}));
+  const { workspace_id, name, value } = body;
+  if (!workspace_id || !name?.trim() || !value) return json({ error: "Missing workspace_id/name/value" }, 400);
+  const denied = await requireSecretsAccess(user.sub, workspace_id);
+  if (denied) return denied;
+
+  const { data, error } = await db.from("secrets").insert({
+    workspace_id,
+    name: name.trim(),
+    description: body.description || null,
+    category: body.category || "other",
+    username: body.username || null,
+    url: body.url || null,
+    tags: Array.isArray(body.tags) ? body.tags : [],
+    value_encrypted: await encryptSecret(String(value)),
+    created_by: user.sub,
+  }).select(SECRET_FIELDS).single();
+
+  if (error) return json({ error: error.message }, 400);
+  return json({ data });
+}
+
+async function handleUpdateSecret(req: Request, secretId: string, user: AuthedUser): Promise<Response> {
+  const { data: existing } = await db.from("secrets").select("workspace_id").eq("id", secretId).maybeSingle();
+  if (!existing) return json({ error: "Not found" }, 404);
+  const denied = await requireSecretsAccess(user.sub, existing.workspace_id);
+  if (denied) return denied;
+
+  const body = await req.json().catch(() => ({}));
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const field of ["name", "description", "category", "username", "url", "tags"]) {
+    if (field in body) payload[field] = body[field];
+  }
+  // An absent/empty `value` means "leave the stored secret alone" - editing
+  // the label of a secret shouldn't require retyping it.
+  if (body.value) payload.value_encrypted = await encryptSecret(String(body.value));
+
+  const { data, error } = await db.from("secrets").update(payload).eq("id", secretId).select(SECRET_FIELDS).single();
+  if (error) return json({ error: error.message }, 400);
+  return json({ data });
+}
+
+async function handleDeleteSecret(secretId: string, user: AuthedUser): Promise<Response> {
+  const { data: existing } = await db.from("secrets").select("workspace_id").eq("id", secretId).maybeSingle();
+  if (!existing) return json({ error: "Not found" }, 404);
+  const denied = await requireSecretsAccess(user.sub, existing.workspace_id);
+  if (denied) return denied;
+
+  const { error } = await db.from("secrets").delete().eq("id", secretId);
+  if (error) return json({ error: error.message }, 400);
+  return json({ success: true });
+}
+
+async function handleRevealSecret(secretId: string, user: AuthedUser): Promise<Response> {
+  const { data: existing } = await db.from("secrets").select("workspace_id, value_encrypted").eq("id", secretId).maybeSingle();
+  if (!existing) return json({ error: "Not found" }, 404);
+  const denied = await requireSecretsAccess(user.sub, existing.workspace_id);
+  if (denied) return denied;
+
+  try {
+    return json({ value: await decryptSecret(existing.value_encrypted) });
+  } catch {
+    // Almost always means WORKOS_SECRETS_KEY changed since this row was
+    // written - say so plainly instead of leaking a crypto error.
+    return json({ error: "Could not decrypt this secret - the server's encryption key may have changed since it was saved" }, 500);
+  }
+}
+
 // --- Upload (Oracle storage proxy) ---------------------------------------
 
 // Matches /mnt/storage/supabase/functions/index.ts's own validation exactly
@@ -740,30 +905,58 @@ async function handleListActivity(req: Request, user: AuthedUser): Promise<Respo
 // of its own beyond this regex.
 const SAFE_FILENAME = /^[a-zA-Z0-9._-]+$/;
 
+// Never trust the host in the upload response - see ORACLE_PUBLIC_BASE_URL
+// above. The *path* is taken from the response when it parses, since the
+// storage server is the only thing that knows which folder the file actually
+// landed in; the documented {folder}/{app}/{file} convention is the fallback.
+function publicUrlFor(fileName: string, uploadResultUrl?: unknown): string {
+  let path = `/${ORACLE_STORAGE_FOLDER}/${ORACLE_APP_NAME}/${fileName}`;
+  if (typeof uploadResultUrl === "string" && uploadResultUrl) {
+    try {
+      path = new URL(uploadResultUrl).pathname;
+    } catch {
+      // Relative or malformed - keep the conventional path.
+      if (uploadResultUrl.startsWith("/")) path = uploadResultUrl;
+    }
+  }
+  return `${ORACLE_PUBLIC_BASE_URL.replace(/\/+$/, "")}${path}`;
+}
+
 async function handleUpload(req: Request): Promise<Response> {
   const fileName = req.headers.get("x-file-name");
   if (!fileName || !SAFE_FILENAME.test(fileName)) {
     return json({ error: "Missing or invalid x-file-name header (letters, digits, '.', '_', '-' only, no slashes)" }, 400);
   }
-  if (!SELFHOST_JWT_SECRET) {
-    return json({ error: "Server is missing SELFHOST_JWT_SECRET - uploads are not configured" }, 500);
+  if (!SELFHOST_JWT_SECRET && !ORACLE_UPLOAD_API_KEY) {
+    return json({ error: "Server is missing SELFHOST_JWT_SECRET / ORACLE_UPLOAD_API_KEY - uploads are not configured" }, 500);
   }
 
+  // `documents` vs `images` for storage backends that route by type (the
+  // portfolio-era contract). The current box ignores it and always writes
+  // under ORACLE_STORAGE_FOLDER, but sending it costs nothing and keeps
+  // this compatible with both.
+  const fileType = req.headers.get("x-file-type") === "documents" ? "documents" : "images";
   const fileBuffer = await req.arrayBuffer();
+
+  const headers: Record<string, string> = {
+    "x-app-name": ORACLE_APP_NAME,
+    "x-file-name": fileName,
+    "x-file-type": fileType,
+  };
 
   // Short-lived admin token for this one upload call - the self-hosted
   // function's own auth scheme (its login() Postgres function normally
   // issues these), not our WORKOS_JWT_SECRET-signed user tokens.
-  const now = Math.floor(Date.now() / 1000);
-  const adminToken = await signJwt({ is_admin: true, iat: now, exp: now + 60 }, SELFHOST_JWT_SECRET);
+  if (SELFHOST_JWT_SECRET) {
+    const now = Math.floor(Date.now() / 1000);
+    headers["Authorization"] = `Bearer ${await signJwt({ is_admin: true, iat: now, exp: now + 60 }, SELFHOST_JWT_SECRET)}`;
+  }
+  // The older standalone upload service authenticates with a plain API key.
+  if (ORACLE_UPLOAD_API_KEY) headers["x-upload-key"] = ORACLE_UPLOAD_API_KEY;
 
-  const uploadRes = await fetch(`${ORACLE_UPLOAD_BASE_URL}/functions/v1/upload`, {
+  const uploadRes = await fetch(`${ORACLE_UPLOAD_BASE_URL.replace(/\/+$/, "")}${ORACLE_UPLOAD_PATH}`, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${adminToken}`,
-      "x-app-name": ORACLE_APP_NAME,
-      "x-file-name": fileName,
-    },
+    headers,
     body: fileBuffer,
   });
 
@@ -772,7 +965,7 @@ async function handleUpload(req: Request): Promise<Response> {
     return json({ error: result.error ?? "Upload to storage failed" }, 502);
   }
 
-  return json({ url: result.url });
+  return json({ url: publicUrlFor(fileName, result.url) });
 }
 
 // --- Router --------------------------------------------------------------
@@ -826,6 +1019,14 @@ Deno.serve(async (req) => {
   if (req.method === "POST" && notifMatch) return handleMarkNotificationRead(notifMatch[1], user);
 
   if (req.method === "GET" && path === "/activity") return handleListActivity(req, user);
+
+  if (req.method === "GET" && path === "/secrets") return handleListSecrets(req, user);
+  if (req.method === "POST" && path === "/secrets") return handleCreateSecret(req, user);
+  const revealMatch = path.match(/^\/secrets\/([^/]+)\/reveal$/);
+  if (req.method === "POST" && revealMatch) return handleRevealSecret(revealMatch[1], user);
+  const secretMatch = path.match(/^\/secrets\/([^/]+)$/);
+  if (req.method === "PATCH" && secretMatch) return handleUpdateSecret(req, secretMatch[1], user);
+  if (req.method === "DELETE" && secretMatch) return handleDeleteSecret(secretMatch[1], user);
 
   return json({ error: "Route or method not found" }, 404);
 });

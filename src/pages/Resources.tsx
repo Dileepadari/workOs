@@ -434,7 +434,10 @@ export default function Resources() {
                 {viewingLink.description && (
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Description</Label>
-                    <p className="whitespace-pre-wrap text-sm text-foreground">{viewingLink.description}</p>
+                    {/* break-words so an unbroken token (API keys, long URLs
+                        pasted as a description) wraps instead of forcing the
+                        whole dialog to scroll sideways. */}
+                    <p className="whitespace-pre-wrap break-words text-sm text-foreground">{viewingLink.description}</p>
                   </div>
                 )}
 

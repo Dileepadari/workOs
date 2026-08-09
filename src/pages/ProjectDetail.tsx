@@ -343,7 +343,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={taskDialog} onOpenChange={v => { setTaskDialog(v); if (!v) { setEditingTask(null); setTaskForm({ title: '', priority: 'medium', due_date: '', due_time: '', time_estimate_min: '', status: 'todo' }); } }}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Task</Button></DialogTrigger>
-              <DialogContent {...preventAccidentalDialogClose}>
+              <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingTask ? 'Edit Task' : 'Add Task'}</DialogTitle></DialogHeader>
                 <form onSubmit={addTask} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={taskForm.title} onChange={e => setTaskForm({ ...taskForm, title: e.target.value })} required /></div>
@@ -429,7 +429,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={milestoneDialog} onOpenChange={setMilestoneDialog}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Milestone</Button></DialogTrigger>
-              <DialogContent {...preventAccidentalDialogClose}>
+              <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingMilestone ? 'Edit Milestone' : 'Add Milestone'}</DialogTitle></DialogHeader>
                 <form onSubmit={addMilestone} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={msForm.title} onChange={e => setMsForm({ ...msForm, title: e.target.value })} required /></div>
@@ -468,7 +468,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={resourceDialog} onOpenChange={setResourceDialog}>
               <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add Resource</Button></DialogTrigger>
-              <DialogContent {...preventAccidentalDialogClose}>
+              <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingResource ? 'Edit Resource' : 'Add Resource'}</DialogTitle></DialogHeader>
                 <form onSubmit={addResource} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={resForm.title} onChange={e => setResForm({ ...resForm, title: e.target.value })} required /></div>
@@ -564,7 +564,7 @@ export default function ProjectDetail() {
           <div className="flex justify-end">
             <Dialog open={meetingDialog} onOpenChange={(o) => { setMeetingDialog(o); if (!o) { setEditingMeeting(null); setPendingAgenda(null); } }}>
               <DialogTrigger asChild><Button size="sm" onClick={openNewMeeting}><Plus className="mr-1 h-3.5 w-3.5" />Add Meeting</Button></DialogTrigger>
-              <DialogContent {...preventAccidentalDialogClose}>
+              <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
                 <DialogHeader><DialogTitle>{editingMeeting ? 'Edit Meeting' : 'Add Meeting'}</DialogTitle></DialogHeader>
                 <form onSubmit={addMeeting} className="space-y-4">
                   <div className="space-y-2"><Label>Title</Label><Input value={meetForm.title} onChange={e => setMeetForm({ ...meetForm, title: e.target.value })} required /></div>

@@ -74,6 +74,7 @@ Single file: `supabase/functions/workos/index.ts`. Routes:
 | GET/POST | `/workspaces/:id/invites` | List / create invites |
 | POST | `/data` | **Generic table gateway** - select/insert/update/upsert/delete against any table in `CONTENT_TABLES` |
 | POST | `/upload` | Proxies a file to Oracle storage, returns the public URL |
+| GET | `/file-text` | Reads a stored file's text for the in-app code viewer (storage sends no CORS headers) |
 | GET/POST | `/comments`, PATCH/DELETE `/comments/:id` | Comments on any entity |
 | POST | `/reactions/toggle`, GET `/reactions` | Emoji reactions on any entity |
 | GET | `/notifications`, POST `/notifications/:id/read`, POST `/notifications/read-all` | Notification center |
@@ -138,6 +139,22 @@ The storage server has no tenancy or metadata concept, so `public.attachments` i
 - `attachments` in `src/lib/api.ts` is the only place that pairs an upload with its metadata row (`attachments.upload`). `BlockEditor`'s `uploadFile` calls it too, so a file pasted into the editor and one added through the Files panel land in the same list.
 - `AttachmentsPanel` (`src/components/AttachmentsPanel.tsx`) is the shared UI: drag-and-drop or browse, list, download, remove. `readOnly` renders nothing at all when there are no files, so it can sit under every comment in a thread without adding noise. `compact` tightens it for dialogs.
 - `UploadUrlButton` is the variant for forms whose main field is a URL (resources, saved links) - it uploads and hands back the stored file so the row points at a permanent URL.
+
+### In-app file viewer
+
+`FilePreviewDialog` renders an attachment without leaving the app. `previewKind()` in `src/lib/fileMeta.ts` decides how:
+
+| Kind | Rendered with | Needs CORS? |
+|---|---|---|
+| image | `<img>` | no |
+| video / audio | `<video>` / `<audio>` | no |
+| pdf | `<iframe>` (browser's native PDF viewer) | no |
+| text / code | `<pre>` with a line-number gutter | **yes** — via `/file-text` |
+| none | download prompt | — |
+
+The storage host serves **no CORS headers**. Media elements aren't CORS-gated so they load directly, but `fetch()` is blocked — hence the `/file-text` proxy for the code viewer. That route is deliberately narrow so it can't be used as an open proxy: it requires a valid user token, compares the requested URL's **origin** against `ORACLE_PUBLIC_BASE_URL` (a `startsWith` check would accept `https://mystorage.dileepadari.dev.evil.com/…`), and caps the response at 2 MB.
+
+Office formats (`.docx`/`.xlsx`/`.pptx`) map to `none` **on purpose**. Previewing them in-browser would mean handing the file's URL to Google's or Microsoft's viewer, and these are private documents on a private host. They get a download prompt instead. Don't "fix" this by adding a third-party viewer without deciding that trade-off deliberately.
 
 **Draft ids.** Files usually need somewhere to belong *before* the row they hang off exists. Most forms solve this by generating a uuid client-side and inserting it as the row's own `id` (`Notes`, `Tasks`, `Resources`, meetings), so files uploaded against the draft already belong to the right entity once saved. Comments can't: the server mints the comment id. `CommentsPanel` therefore stages files against the composer's draft id and calls `attachments.reassign(...)` after posting to re-point them. If you add another server-id-generating entity, follow that pattern.
 
@@ -306,4 +323,6 @@ npx supabase functions deploy workos       # deploy the Edge Function
 - **Filenames for uploads must be flat** (no directory separators) - the Oracle storage server has no folder/tenancy concept, so `workspaceId`/`entityType`/`entityId` are folded into the filename itself instead.
 - **Upload and public-read are different hosts.** Never return the upload endpoint's own `url` to the client; see [File storage](#file-storage-oracle-not-supabase-storage).
 - **`WORKOS_SECRETS_KEY` has no rotation path.** Changing it makes every existing vault entry undecryptable. Adding rotation means re-encrypting every row under the new key in a migration, which nothing does today.
+- **Cancelling a create dialog orphans staged attachments.** Files upload immediately, against a draft id that becomes the row's id on save. Close the dialog without saving and the `attachments` rows (and the stored files) survive, pointing at an entity that never existed. Harmless but untidy; a fix would mean tracking staged ids per dialog and deleting them on dismiss, which nothing does today.
+- **`DialogContent` deviates from stock shadcn** with `grid-cols-[minmax(0,1fr)]`, and every `<DialogContent>` passes `aria-describedby={undefined}` (no dialog in this app renders a `DialogDescription`). Both get lost if you regenerate the component — see the comment in `src/components/ui/dialog.tsx`.
 - **The frontend bundle is ~2.5 MB** (733 kB gzipped), dominated by BlockNote and recharts. Not code-split yet; if that becomes a problem, route-level `React.lazy` is the obvious first move.

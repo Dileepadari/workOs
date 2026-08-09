@@ -148,7 +148,7 @@ export default function TagManager() {
 
       {/* Rename Dialog */}
       <Dialog open={renameDialog} onOpenChange={setRenameDialog}>
-        <DialogContent className="sm:max-w-sm" {...preventAccidentalDialogClose}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm" {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>Rename Tag</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Renaming "{selectedTag}" across all records.</p>
@@ -163,7 +163,7 @@ export default function TagManager() {
 
       {/* Merge Dialog */}
       <Dialog open={mergeDialog} onOpenChange={setMergeDialog}>
-        <DialogContent className="sm:max-w-sm" {...preventAccidentalDialogClose}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm" {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>Merge Tag</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Merge "{selectedTag}" into another tag.</p>

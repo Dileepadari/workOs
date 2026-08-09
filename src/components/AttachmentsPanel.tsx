@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { attachments as attachmentsApi, type Attachment, type AttachmentScope } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { FilePreviewDialog } from '@/components/FilePreviewDialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatBytes, fileKind, isImage } from '@/lib/fileMeta';
 import { cn } from '@/lib/utils';
@@ -52,6 +53,7 @@ export function AttachmentsPanel({
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Attachment | null>(null);
+  const [previewing, setPreviewing] = useState<Attachment | null>(null);
 
   const scope: AttachmentScope = { workspaceId, entityType, entityId };
 
@@ -178,23 +180,29 @@ export function AttachmentsPanel({
             const size = formatBytes(file.size_bytes);
             return (
               <li key={file.id} className="group flex items-center gap-2 rounded-md border border-border px-2 py-1.5 transition-colors hover:bg-muted/40">
-                {isImage(file.mime_type, file.file_name) ? (
-                  <img src={file.url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" loading="lazy" />
-                ) : (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-primary/10">
-                    <Icon className="h-4 w-4 text-primary" />
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setPreviewing(file)}
+                  className="shrink-0"
+                  aria-label={`Preview ${file.file_name}`}
+                >
+                  {isImage(file.mime_type, file.file_name) ? (
+                    <img src={file.url} alt="" className="h-8 w-8 rounded object-cover" loading="lazy" />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+                </button>
                 <div className="min-w-0 flex-1">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block truncate text-xs font-medium text-foreground hover:text-primary hover:underline"
-                    title={file.file_name}
+                  <button
+                    type="button"
+                    onClick={() => setPreviewing(file)}
+                    className="block w-full truncate text-left text-xs font-medium text-foreground hover:text-primary hover:underline"
+                    title={`Preview ${file.file_name}`}
                   >
                     {file.file_name}
-                  </a>
+                  </button>
                   {size && <p className="text-[10px] text-muted-foreground">{size}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -221,6 +229,8 @@ export function AttachmentsPanel({
           })}
         </ul>
       )}
+
+      <FilePreviewDialog file={previewing} onOpenChange={(open) => { if (!open) setPreviewing(null); }} />
 
       <ConfirmDialog
         open={deleteTarget !== null}

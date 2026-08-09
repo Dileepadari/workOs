@@ -100,7 +100,7 @@ function WorkspaceSwitcher() {
       </DropdownMenu>
 
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent {...preventAccidentalDialogClose}>
+        <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
           <DialogHeader>
             <DialogTitle>Create workspace</DialogTitle>
           </DialogHeader>

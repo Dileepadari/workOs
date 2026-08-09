@@ -260,7 +260,7 @@ export default function FocusMode() {
 
       {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Timer Settings</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

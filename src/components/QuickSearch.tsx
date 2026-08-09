@@ -109,7 +109,7 @@ export function QuickSearch({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="p-0 gap-0 max-w-lg">
+      <DialogContent aria-describedby={undefined} className="p-0 gap-0 max-w-lg">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input

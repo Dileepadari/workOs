@@ -968,6 +968,48 @@ async function handleUpload(req: Request): Promise<Response> {
   return json({ url: publicUrlFor(fileName, result.url) });
 }
 
+// --- Text file proxy (for the in-app code/text viewer) -------------------
+//
+// The storage host serves files with no CORS headers, so the browser can
+// render them in <img>/<video>/<iframe> (media loads aren't CORS-gated) but
+// cannot fetch() their text to show in a code viewer. This route reads the
+// file server-side and hands it back with our own CORS headers.
+//
+// Deliberately narrow, so it can't be used as an open proxy: it requires a
+// valid user token, and it only fetches URLs on ORACLE_PUBLIC_BASE_URL.
+const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024;
+
+async function handleFileText(req: Request): Promise<Response> {
+  const target = new URL(req.url).searchParams.get("url");
+  if (!target) return json({ error: "Missing url" }, 400);
+
+  let parsed: URL;
+  try {
+    parsed = new URL(target);
+  } catch {
+    return json({ error: "Invalid url" }, 400);
+  }
+  // Origin comparison, not startsWith on the raw string - the latter would
+  // accept https://mystorage.dileepadari.dev.evil.com/...
+  if (parsed.origin !== new URL(ORACLE_PUBLIC_BASE_URL).origin) {
+    return json({ error: "Refusing to fetch a URL outside the storage host" }, 403);
+  }
+
+  const upstream = await fetch(parsed.toString());
+  if (!upstream.ok) return json({ error: `Could not read file (${upstream.status})` }, 502);
+
+  const size = Number(upstream.headers.get("content-length") ?? 0);
+  if (size > MAX_TEXT_PREVIEW_BYTES) {
+    return json({ error: "File is too large to preview" }, 413);
+  }
+
+  const text = await upstream.text();
+  if (text.length > MAX_TEXT_PREVIEW_BYTES) {
+    return json({ error: "File is too large to preview" }, 413);
+  }
+  return json({ text });
+}
+
 // --- Router --------------------------------------------------------------
 
 Deno.serve(async (req) => {
@@ -1003,6 +1045,7 @@ Deno.serve(async (req) => {
 
   if (req.method === "POST" && path === "/data") return handleData(req, user);
   if (req.method === "POST" && path === "/upload") return handleUpload(req);
+  if (req.method === "GET" && path === "/file-text") return handleFileText(req);
 
   if (req.method === "POST" && path === "/comments") return handleCreateComment(req, user);
   if (req.method === "GET" && path === "/comments") return handleListComments(req, user);

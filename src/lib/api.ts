@@ -355,6 +355,16 @@ export const secrets = {
     (await call(`/secrets/${secretId}/reveal`, { method: 'POST' })).value,
 };
 
+export const files = {
+  /**
+   * Reads a stored file's contents as text, for the in-app code/text viewer.
+   * Goes through the Edge Function because the storage host serves no CORS
+   * headers, so the browser can't fetch() it directly.
+   */
+  text: async (url: string): Promise<string> =>
+    (await call(`/file-text?url=${encodeURIComponent(url)}`)).text,
+};
+
 export interface Attachment {
   id: string;
   workspace_id: string;

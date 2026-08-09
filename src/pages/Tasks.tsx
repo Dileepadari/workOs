@@ -203,7 +203,7 @@ export default function Tasks() {
           </Button>
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild><Button size="sm" onClick={openNewTask}><Plus className="mr-2 h-4 w-4" />New Task</Button></DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl" {...preventAccidentalDialogClose}>
+            <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto sm:max-w-xl" {...preventAccidentalDialogClose}>
               <DialogHeader><DialogTitle>{editingTask ? 'Edit Task' : 'New Task'}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -327,7 +327,7 @@ export default function Tasks() {
       )}
 
       <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}>
-        <DialogContent {...preventAccidentalDialogClose}>
+        <DialogContent aria-describedby={undefined} {...preventAccidentalDialogClose}>
           <DialogHeader><DialogTitle>Save current view</DialogTitle></DialogHeader>
           <Input value={saveViewName} onChange={(e) => setSaveViewName(e.target.value)} placeholder="e.g. My urgent tasks" autoFocus />
           <DialogFooter><Button onClick={saveCurrentView} disabled={!saveViewName.trim()}>Save</Button></DialogFooter>

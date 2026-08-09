@@ -236,7 +236,7 @@ export default function Secrets() {
           <DialogTrigger asChild>
             <Button size="sm" onClick={openNew}><Plus className="mr-2 h-4 w-4" />New Secret</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
+          <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
             <DialogHeader>
               <DialogTitle>{editing ? 'Edit Secret' : 'New Secret'}</DialogTitle>
             </DialogHeader>

@@ -119,6 +119,36 @@ describe('attachments.upload', () => {
   });
 });
 
+describe('attachments.remove', () => {
+  const file = {
+    id: 'att-1',
+    url: 'https://mystorage.dileepadari.dev/images/workos/spec.pdf',
+  } as Parameters<typeof attachments.remove>[1];
+
+  it('deletes the stored blob first, then the metadata row', async () => {
+    const calls = mockFetch([{ body: { success: true } }, { body: { success: true } }]);
+
+    await attachments.remove('ws1', file);
+
+    expect(calls).toHaveLength(2);
+    // Storage first...
+    expect(calls[0].url).toContain('/file?url=');
+    expect(calls[0].url).toContain(encodeURIComponent(file.url));
+    expect(calls[0].init.method).toBe('DELETE');
+    // ...row second.
+    const rowDelete = JSON.parse(calls[1].init.body as string);
+    expect(rowDelete).toMatchObject({ table: 'attachments', operation: 'delete', id: 'att-1' });
+  });
+
+  it('keeps the metadata row when storage refuses, so the file stays retryable', async () => {
+    const calls = mockFetch([{ ok: false, status: 502, body: { error: 'Storage delete failed (404)' } }]);
+
+    await expect(attachments.remove('ws1', file)).rejects.toThrow('Storage delete failed');
+    // The row delete must not have been attempted.
+    expect(calls).toHaveLength(1);
+  });
+});
+
 describe('attachments.reassign', () => {
   it('is a no-op when the draft id already matches the real id', async () => {
     const calls = mockFetch([{ body: { data: [] } }]);

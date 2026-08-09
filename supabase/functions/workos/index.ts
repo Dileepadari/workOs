@@ -1010,6 +1010,60 @@ async function handleFileText(req: Request): Promise<Response> {
   return json({ text });
 }
 
+// --- Stored-file deletion ------------------------------------------------
+//
+// Removing an attachment used to drop only the metadata row, leaving the blob
+// on the storage box forever. This proxies a DELETE to the storage server's
+// own /upload route (added alongside this).
+//
+// Same narrowness as /file-text: authenticated, and the URL's origin must be
+// ORACLE_PUBLIC_BASE_URL, so it can't be pointed at anything else. The
+// filename is taken from the URL's last path segment and re-validated against
+// SAFE_FILENAME before being forwarded.
+async function handleDeleteStoredFile(req: Request): Promise<Response> {
+  const target = new URL(req.url).searchParams.get("url");
+  if (!target) return json({ error: "Missing url" }, 400);
+
+  let parsed: URL;
+  try {
+    parsed = new URL(target);
+  } catch {
+    return json({ error: "Invalid url" }, 400);
+  }
+  if (parsed.origin !== new URL(ORACLE_PUBLIC_BASE_URL).origin) {
+    return json({ error: "Refusing to delete a URL outside the storage host" }, 403);
+  }
+
+  const fileName = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
+  if (!fileName || !SAFE_FILENAME.test(fileName) || fileName.includes("..")) {
+    return json({ error: "Could not derive a safe file name from that URL" }, 400);
+  }
+
+  if (!SELFHOST_JWT_SECRET && !ORACLE_UPLOAD_API_KEY) {
+    return json({ error: "Server is missing SELFHOST_JWT_SECRET / ORACLE_UPLOAD_API_KEY" }, 500);
+  }
+
+  const headers: Record<string, string> = { "x-app-name": ORACLE_APP_NAME, "x-file-name": fileName };
+  if (SELFHOST_JWT_SECRET) {
+    const now = Math.floor(Date.now() / 1000);
+    headers["Authorization"] = `Bearer ${await signJwt({ is_admin: true, iat: now, exp: now + 60 }, SELFHOST_JWT_SECRET)}`;
+  }
+  if (ORACLE_UPLOAD_API_KEY) headers["x-upload-key"] = ORACLE_UPLOAD_API_KEY;
+
+  const res = await fetch(`${ORACLE_UPLOAD_BASE_URL.replace(/\/+$/, "")}${ORACLE_UPLOAD_PATH}`, {
+    method: "DELETE",
+    headers,
+  });
+  const result = await res.json().catch(() => ({}));
+
+  // A storage server without the DELETE route (404) is reported plainly
+  // rather than pretended-successful, so the caller can keep the metadata row.
+  if (!res.ok || !result.success) {
+    return json({ error: result.error ?? `Storage delete failed (${res.status})` }, 502);
+  }
+  return json({ success: true, deleted: result.deleted !== false });
+}
+
 // --- Router --------------------------------------------------------------
 
 Deno.serve(async (req) => {
@@ -1046,6 +1100,7 @@ Deno.serve(async (req) => {
   if (req.method === "POST" && path === "/data") return handleData(req, user);
   if (req.method === "POST" && path === "/upload") return handleUpload(req);
   if (req.method === "GET" && path === "/file-text") return handleFileText(req);
+  if (req.method === "DELETE" && path === "/file") return handleDeleteStoredFile(req);
 
   if (req.method === "POST" && path === "/comments") return handleCreateComment(req, user);
   if (req.method === "GET" && path === "/comments") return handleListComments(req, user);

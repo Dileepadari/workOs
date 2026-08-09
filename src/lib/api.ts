@@ -363,6 +363,11 @@ export const files = {
    */
   text: async (url: string): Promise<string> =>
     (await call(`/file-text?url=${encodeURIComponent(url)}`)).text,
+
+  /** Deletes the stored blob itself. Throws if storage refuses. */
+  remove: async (url: string): Promise<void> => {
+    await call(`/file?url=${encodeURIComponent(url)}`, { method: 'DELETE' });
+  },
 };
 
 export interface Attachment {
@@ -410,7 +415,17 @@ export const attachments = {
     });
   },
 
-  remove: (workspaceId: string, id: string): Promise<void> => api.remove('attachments', workspaceId, id),
+  /**
+   * Removes an attachment completely - the stored file *and* its metadata row.
+   *
+   * Storage first, on purpose: if the blob delete fails, the row survives, so
+   * the file is still listed and can be retried. Doing it the other way round
+   * would leave a file nothing references and nothing can find again.
+   */
+  remove: async (workspaceId: string, file: Attachment): Promise<void> => {
+    await files.remove(file.url);
+    await api.remove('attachments', workspaceId, file.id);
+  },
 
   /**
    * Re-points attachments from a client-side draft id onto the real row id.

@@ -50,6 +50,10 @@ A Pomodoro timer with configurable focus and break lengths, a chime, browser not
 ### Files everywhere
 Anywhere you can write, you can attach. Drag and drop or browse to upload documents onto projects, tasks, notes, meetings, resources and individual comments. Files show with a type icon, a size, and one-click download, and images preview inline.
 
+Click any attachment to open it without leaving the app - photos, video, audio, PDFs, and source/text files in a line-numbered code view. Office documents (`.docx`, `.xlsx`) show a download prompt instead: previewing them would mean sending your file to an external viewer, which WorkOS deliberately doesn't do.
+
+Deleting an attachment removes the file from storage for good, so anything embedding it (an image pasted into a note) will break. You'll be warned before it happens.
+
 ### Collaboration
 Comments on projects, tasks, notes and meetings, written in the same rich editor as everything else, with @mentions, emoji reactions, pinning and attached documents. An activity feed and a notification centre keep you current on mentions and reassignments.
 

@@ -186,7 +186,7 @@ export default function Resources() {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">{links.length} {links.length === 1 ? 'link' : 'links'} saved</p>
+          <div />
           <Dialog open={linkDialogOpen} onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setEditingLink(null); }}>
             <DialogTrigger asChild>
               <Button onClick={openNewLink}>

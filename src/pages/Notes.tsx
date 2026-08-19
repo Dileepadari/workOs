@@ -98,7 +98,7 @@ export default function Notes() {
       <PageHeader title="Notes" subtitle={`${notes.length} ${notes.length === 1 ? "note" : "notes"}`} />
 
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</p>
+        <div />
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setEditing(null); setPendingContent(null); } }}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={openNewNote}><Plus className="mr-2 h-4 w-4" />New Note</Button>

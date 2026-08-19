@@ -140,8 +140,7 @@ export default function Projects() {
     <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
       <PageHeader title="Projects" subtitle={`${projects.length} ${projects.length === 1 ? "project" : "projects"} in this workspace`} />
 
-      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
+      <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Project</Button>
@@ -215,9 +214,10 @@ export default function Projects() {
         </Dialog>
       </div>
 
-      {/* Filter Bar */}
-      <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-end">
+      {/* Filters, sharing a row with the New Project button above rather than
+          leaving it stranded on a line of its own. */}
+      <div className="-mt-12 space-y-3">
+        <div className="flex flex-col gap-3 pr-36 sm:gap-4 sm:flex-row sm:items-end">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="pl-9 h-9 text-sm" />

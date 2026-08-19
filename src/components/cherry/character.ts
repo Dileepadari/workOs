@@ -108,10 +108,6 @@ export const CHARACTER_SVG = (avatar: Avatar): string => /* html */ `
       <stop offset="65%"  stop-color="#0F172A" stop-opacity="0.10"/>
       <stop offset="100%" stop-color="#0F172A" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="vl-goggle" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#BFDBFE" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.75"/>
-    </linearGradient>
 
     <!-- The contact shadow is blurred; everything else stays crisp so the
          figure keeps its vector edge at any zoom. -->
@@ -238,13 +234,11 @@ export const CHARACTER_SVG = (avatar: Avatar): string => /* html */ `
       <!-- Hairline, over the face -->
       <path d="${figureFor(avatar).front}" fill="url(#vl-hair)"/>
 
-      <!-- Safety goggles pushed up on the forehead: reads instantly as
-           "lab", and gives the silhouette something to hold. -->
-      <g class="vl-goggles">
-        <rect x="78" y="26" width="44" height="11" rx="5" fill="url(#vl-goggle)" opacity="0.92"/>
-        <rect x="78" y="26" width="44" height="11" rx="5" fill="none" stroke="#3B82F6" stroke-width="1.6" opacity="0.7"/>
-        <path d="M74 31h6M120 31h6" stroke="#475569" stroke-width="2.6" stroke-linecap="round"/>
-      </g>
+      <!-- The lab original wore safety goggles pushed up on the forehead,
+           which read instantly as "lab" - exactly the wrong building for a
+           work manager, and the one detail that survived re-clothing her and
+           still gave the game away. Removed rather than restyled: the
+           silhouette does not need a prop. -->
     </g>
   </g>
 </svg>`;

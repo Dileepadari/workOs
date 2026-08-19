@@ -84,11 +84,11 @@ Single file: `supabase/functions/workos/index.ts`. Routes:
 
 ### The `/data` generic gateway
 
-Most content (projects, tasks, notes, resources, milestones, meetings, events, links, daily_log, calendar_integrations, synced_events, saved_views, attachments, workspace_settings) is not one-endpoint-per-table - it all goes through `POST /data` with `{ table, operation, workspace_id, ...filters/payload }`. The `CONTENT_TABLES` config object in `index.ts` declares per-table behavior:
+Most content (projects, tasks, notes, resources, milestones, meetings, events, links, day_pages, week_pages, focus_sessions, calendar_integrations, synced_events, saved_views, attachments, workspace_settings) is not one-endpoint-per-table - it all goes through `POST /data` with `{ table, operation, workspace_id, ...filters/payload }`. The `CONTENT_TABLES` config object in `index.ts` declares per-table behavior:
 
 - `projectScoped` - row belongs to a project; guests are scoped to only the projects they're a member of
 - `selfIsProject` - special-cased for the `projects` table itself
-- `personalOnly` - guests can't access this table at all (e.g. `daily_log`)
+- `personalOnly` - guests can't access this table at all, and every row is additionally scoped to its own creator regardless of workspace role (`day_pages`, `week_pages`, `focus_sessions`, the calendar feeds)
 - `noCreatedBy` - table doesn't have a `created_by` column (e.g. `attachments` uses `uploaded_by`)
 - `orderColumn` - non-default primary key for update/delete (e.g. `workspace_settings` is keyed by `workspace_id`)
 
@@ -110,7 +110,7 @@ Core multi-tenancy tables (added in the `20260729000001_stage1_multitenant_custo
 - `saved_views` - named filter/sort combos for the Tasks page
 - `secrets` - the encrypted credentials vault (see [Secrets vault](#secrets-vault))
 
-Content tables (`projects`, `tasks`, `notes`, `resources`, `milestones`, `meetings`, `events`, `links`, `daily_log`, `calendar_integrations`, `synced_events`) predate the multi-tenant rebuild and were extended with `workspace_id` + `created_by`. Rich content lives in paired `content_json` (BlockNote `Block[]`) / `content_text` (plain-text mirror, used for search/previews) columns.
+Content tables (`projects`, `tasks`, `notes`, `resources`, `milestones`, `meetings`, `events`, `links`, `calendar_integrations`, `synced_events`) predate the multi-tenant rebuild and were extended with `workspace_id` + `created_by`. Rich content lives in paired `content_json` (BlockNote `Block[]`) / `content_text` (plain-text mirror, used for search/previews) columns.
 
 Full schema history is in `supabase/migrations/`, applied via `npx supabase db push`.
 
@@ -337,3 +337,42 @@ npx supabase functions deploy workos       # deploy the Edge Function
 - **Cancelling a create dialog orphans staged attachments.** Files upload immediately, against a draft id that becomes the row's id on save. Close the dialog without saving and the `attachments` rows (and the stored files) survive, pointing at an entity that never existed. Harmless but untidy; a fix would mean tracking staged ids per dialog and deleting them on dismiss, which nothing does today.
 - **`DialogContent` deviates from stock shadcn** with `grid-cols-[minmax(0,1fr)]`, and every `<DialogContent>` passes `aria-describedby={undefined}` (no dialog in this app renders a `DialogDescription`). Both get lost if you regenerate the component - see the comment in `src/components/ui/dialog.tsx`.
 - **The frontend bundle is ~2.5 MB** (733 kB gzipped), dominated by BlockNote and recharts. Not code-split yet; if that becomes a problem, route-level `React.lazy` is the obvious first move.
+
+---
+
+## The book, Cherry, and preferences
+
+Added in the LifeBook rebuild. Three things worth knowing before changing any of it.
+
+### The book
+
+`day_pages` and `week_pages`, both `personalOnly`, both `UNIQUE` per member per date. Pages are generated on demand by `src/lib/bookEngine.ts` from rows the client already has - there is no server-side generation step. `metrics` is a snapshot taken when the page was written, which is why a sealed page keeps saying what it said after the underlying tasks change.
+
+Two corrections are baked in and should not be undone:
+
+- **`tasks.completed_at` is real now.** Weekly Review used to read `updated_at` as a proxy, so editing the title of a task you finished last month counted it as finished this week.
+- **Weeks start on Monday**, passed explicitly as `WEEK_OPTS`. `date-fns` defaults to Sunday, which silently put every week boundary a day out.
+
+`BookReader.tsx` is the only 3D in the app. `overflow` on a `transform-style: preserve-3d` element forces it flat, so the clip that stops a swinging page widening the viewport lives on an *ancestor of the perspective*, never on the sheet. The turn also settles on a timer as well as on the animation promise: a background tab pauses `requestAnimationFrame`, and without the timer the reader would stay locked on whatever page it was on when you switched away.
+
+### Cherry
+
+`supabase/functions/workos/cherry/`. The rule everything hangs on: **the model never emits a row id.** It describes the row it means, and `resolve.ts` turns descriptions into ids deterministically. Context rows are sent under per-request handles (`p1`, `t7`) that are discarded with the request. That makes hallucinated ids structurally impossible and makes injected text inside a note inert, because the resolver only searches rows the *user's own message* gives grounds for.
+
+Second rule: every extracted field carries a `quote`. A field whose quote is absent from the message, and whose `evidence` pattern in `schema.ts` does not fire, is dropped and re-asked rather than written. Models fill schemas; ask for a task with a priority and you get one whether or not urgency was expressed.
+
+`/apply` re-validates the proposal from scratch - the body is untrusted - and executes only the actions whose ids appear in `confirmed_action_ids`. There is no "apply all" flag to default to true. It runs through the same `authorizeDataOp` / `executeDataOp` pair as `POST /data`, so Cherry has no privileged path and a guest cannot use her to reach past their project scope.
+
+`ENTITY_SCHEMA` is narrower than `CONTENT_TABLES` on purpose: no `attachments` (deleting the row orphans the blob), no `calendar_integrations` or `synced_events` (machine-managed cursors), no `workspace_settings`. `secrets` is unreachable regardless - it is not in the gateway at all.
+
+**Honest scope note:** Cherry's field validation is a guardrail on Cherry, not an app-wide invariant. `POST /data` still accepts any column Postgres accepts. The real boundary remains the table allowlist, the membership checks, the server-side stamping of `workspace_id`/`created_by`, and the database's own constraints.
+
+### Preferences and per-user keys
+
+`user_preferences`, keyed by `user_id` alone - no workspace, since who your assistant is and what theme you use is yours across every workspace you belong to.
+
+The two AI keys are **write-only across the API**. They are encrypted with the same AES-GCM scheme and the same `WORKOS_SECRETS_KEY` as the secrets vault, in the same `v1.<iv>.<ciphertext>` format. `GET /preferences` returns `has_anthropic_key` and a four-character hint, never the key. `userAiKeys()` decrypts server-side for Cherry only; a key that fails to decrypt is treated as absent, which is what happens after a `WORKOS_SECRETS_KEY` rotation and is better than a hard failure.
+
+A user's own key is preferred over the server's `CHERRY_*` environment key - someone who supplied a key is paying for it.
+
+localStorage still holds the auth token, the current workspace id, and a **paint cache** of theme and font. The cache is read once on mount to avoid a flash of the wrong theme while the preferences request is in flight; it is never the source of truth, and the server's value overwrites it on hydration.

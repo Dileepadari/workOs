@@ -22,7 +22,7 @@ export function TaskListView({ tasks, projectMap, memberMap, selectedIds, onTogg
           <div key={status}>
             <h3 className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
               {TASK_STATUS_LABELS[status]}
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] normal-case">{statusTasks.length}</span>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs normal-case">{statusTasks.length}</span>
             </h3>
             <div className="space-y-1.5">
               {statusTasks.map((task, index) => (

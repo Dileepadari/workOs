@@ -178,7 +178,7 @@ export default function Notes() {
                     {n.content_text || n.content}
                   </button>
                 )}
-                <p className="text-[10px] text-muted-foreground">Updated {formatDistanceToNow(new Date(n.updated_at), { addSuffix: true })}</p>
+                <p className="text-xs text-muted-foreground">Updated {formatDistanceToNow(new Date(n.updated_at), { addSuffix: true })}</p>
               </CardContent>
             </Card>
           ))}

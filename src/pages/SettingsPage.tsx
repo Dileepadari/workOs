@@ -14,6 +14,7 @@ import { Download, Tag, Sun, Moon, Shield, Database, Building2, Users } from 'lu
 import { PageHeader } from '@/components/PageHeader';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
 import { CalendarIntegrationSettings } from '@/components/CalendarIntegrationSettings';
+import { CherrySettings } from '@/components/cherry/CherrySettings';
 
 /** Only the columns the links CSV export writes. */
 interface ExportedLink {
@@ -125,7 +126,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-muted-foreground">User ID</p>
-                <p className="font-mono text-[10px] sm:text-xs text-muted-foreground break-all">{user?.id}</p>
+                <p className="font-mono text-xs sm:text-xs text-muted-foreground break-all">{user?.id}</p>
               </div>
             </CardContent>
           </Card>
@@ -146,6 +147,8 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <CherrySettings />
 
         <CalendarIntegrationSettings />
 

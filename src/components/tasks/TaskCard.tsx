@@ -32,21 +32,21 @@ export function TaskCard({ task, project, assignee, selected, onToggleSelect, on
       <div className="min-w-0 flex-1">
         <p className={`text-xs sm:text-sm ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <Badge className={`text-[10px] ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</Badge>
+          <Badge className={`text-xs ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</Badge>
           {project && (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-xs">
               <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: project.color }} />
               {project.name}
             </Badge>
           )}
           {task.due_date && (
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />{format(new Date(task.due_date), 'MMM d')}
             </span>
           )}
           {assignee && (
             <span className="ml-auto flex items-center gap-1" title={memberLabel(assignee)}>
-              <Avatar className="h-4 w-4"><AvatarFallback className="text-[9px]">{memberLabel(assignee)[0]?.toUpperCase()}</AvatarFallback></Avatar>
+              <Avatar className="h-4 w-4"><AvatarFallback className="text-xs">{memberLabel(assignee)[0]?.toUpperCase()}</AvatarFallback></Avatar>
             </span>
           )}
         </div>

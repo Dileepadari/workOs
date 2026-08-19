@@ -232,7 +232,7 @@ export default function ProjectDetail() {
             <h1 className="text-lg sm:text-2xl font-semibold text-foreground">{project.name}</h1>
             <Badge className={`capitalize ${statusColors[project.status] || 'bg-muted text-muted-foreground'}`}>{project.status.replace('_', ' ')}</Badge>
             {project.type && <Badge variant="outline" className="capitalize text-xs">{project.type.replace('_', ' ')}</Badge>}
-            {project.tags?.length > 0 && project.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px] sm:text-xs">{t}</Badge>)}
+            {project.tags?.length > 0 && project.tags.map(t => <Badge key={t} variant="secondary" className="text-xs sm:text-xs">{t}</Badge>)}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pl-0 sm:pl-12 text-xs text-muted-foreground">
@@ -299,7 +299,7 @@ export default function ProjectDetail() {
                     <CardContent className="flex flex-col items-center gap-2 p-3 sm:p-4 text-center">
                       <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bg}`}><Icon className={`h-4 w-4 ${color}`} /></div>
                       <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{value}</p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">{label}</p>
+                      <p className="text-xs sm:text-xs text-muted-foreground">{label}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -314,7 +314,7 @@ export default function ProjectDetail() {
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10"><Flag className="h-4 w-4 text-accent" /></div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[10px] text-muted-foreground">Next Milestone</p>
+                            <p className="text-xs text-muted-foreground">Next Milestone</p>
                             <p className="truncate text-sm font-medium text-foreground">{nextMs.title}</p>
                           </div>
                           <span className="shrink-0 text-xs text-muted-foreground">{format(new Date(nextMs.date), 'MMM d')}</span>
@@ -325,7 +325,7 @@ export default function ProjectDetail() {
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"><Calendar className="h-4 w-4 text-primary" /></div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] text-muted-foreground">Next Meeting</p>
+                          <p className="text-xs text-muted-foreground">Next Meeting</p>
                           <p className="truncate text-sm font-medium text-foreground">{nextMeeting.title}</p>
                         </div>
                         <span className="shrink-0 text-xs text-muted-foreground">{format(new Date(nextMeeting.scheduled_at), 'MMM d, h:mm a')}</span>
@@ -388,10 +388,10 @@ export default function ProjectDetail() {
                   <div key={task.id} className="flex items-center gap-2 sm:gap-3 rounded-md border border-border px-2 sm:px-3 py-2.5 transition-colors hover:bg-muted/30 group">
                     <Checkbox checked={task.status === 'done'} onCheckedChange={() => toggleTask(task)} />
                     <span className={`flex-1 text-xs sm:text-sm ${task.status === 'done' ? 'text-muted-foreground line-through' : task.status === 'dropped' ? 'text-muted-foreground line-through italic' : 'text-foreground'}`}>{task.title}</span>
-                    <Badge className={`text-[10px] sm:text-xs ${priorityColors[task.priority]}`}>{task.priority}</Badge>
-                    {task.time_estimate_min && <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline">{task.time_estimate_min}m</span>}
+                    <Badge className={`text-xs sm:text-xs ${priorityColors[task.priority]}`}>{task.priority}</Badge>
+                    {task.time_estimate_min && <span className="text-xs sm:text-xs text-muted-foreground hidden sm:inline">{task.time_estimate_min}m</span>}
                     {task.due_date && (
-                      <span className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 text-xs sm:text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />{format(new Date(task.due_date), 'MMM d')}
                         {task.due_time && <span>· {task.due_time}</span>}
                       </span>
@@ -399,7 +399,7 @@ export default function ProjectDetail() {
                     {/* Revealed on hover to keep the resting row uncluttered */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {getNextStatus(task.status) && (
-                        <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] whitespace-nowrap" onClick={() => moveTaskStatus(task, getNextStatus(task.status)!)}>
+                        <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs whitespace-nowrap" onClick={() => moveTaskStatus(task, getNextStatus(task.status)!)}>
                           <ArrowRight className="h-3 w-3 mr-1" />
                           {taskStatusLabels[getNextStatus(task.status)!]}
                         </Button>
@@ -453,7 +453,7 @@ export default function ProjectDetail() {
               <Checkbox checked={ms.is_completed} onCheckedChange={() => toggleMilestone(ms)} />
               <Flag className={`h-4 w-4 ${ms.is_completed ? 'text-success' : 'text-primary'}`} />
               <span className={`flex-1 text-xs sm:text-sm ${ms.is_completed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{ms.title}</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground">{format(new Date(ms.date), 'MMM d, yyyy')}</span>
+              <span className="text-xs sm:text-xs text-muted-foreground">{format(new Date(ms.date), 'MMM d, yyyy')}</span>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditMilestone(ms)}><Edit2 className="h-3 w-3" /></Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteMilestone(ms.id)}><Trash2 className="h-3 w-3" /></Button>
@@ -491,7 +491,7 @@ export default function ProjectDetail() {
                         />
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Paste a link, or upload a file to store it here.</p>
+                    <p className="text-xs text-muted-foreground">Paste a link, or upload a file to store it here.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Type</Label>
@@ -514,7 +514,7 @@ export default function ProjectDetail() {
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"><LinkIcon className="h-3.5 w-3.5 text-primary" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
-                    <Badge variant="outline" className="mt-0.5 text-[10px] capitalize">{r.type}</Badge>
+                    <Badge variant="outline" className="mt-0.5 text-xs capitalize">{r.type}</Badge>
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
                     {r.url && <Button variant="ghost" size="icon" className="h-7 w-7" asChild><a href={r.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a></Button>}
@@ -608,14 +608,14 @@ export default function ProjectDetail() {
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs sm:text-sm font-medium text-foreground">{m.title}</h4>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">{format(new Date(m.scheduled_at), 'MMM d, h:mm a')}</span>
+                    <span className="text-xs sm:text-xs text-muted-foreground">{format(new Date(m.scheduled_at), 'MMM d, h:mm a')}</span>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditMeeting(m)}><Edit2 className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteMeeting(m.id)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
                 </div>
-                {m.attendees && <p className="text-[10px] sm:text-xs text-muted-foreground">With: {m.attendees}</p>}
+                {m.attendees && <p className="text-xs sm:text-xs text-muted-foreground">With: {m.attendees}</p>}
                 {wsId && (m.agenda_json || m.agenda_html) && (
                   <BlockEditor
                     key={m.id}
@@ -625,11 +625,11 @@ export default function ProjectDetail() {
                     workspaceId={wsId}
                     entityType="meetings"
                     entityId={m.id}
-                    className="text-[10px] sm:text-xs text-muted-foreground"
+                    className="text-xs sm:text-xs text-muted-foreground"
                   />
                 )}
-                {m.notes_text && <div className="mt-2 rounded bg-muted/50 p-2 sm:p-3 text-[10px] sm:text-xs text-foreground whitespace-pre-wrap">{m.notes_text}</div>}
-                {m.action_items && <p className="text-[10px] sm:text-xs text-primary">Action: {m.action_items}</p>}
+                {m.notes_text && <div className="mt-2 rounded bg-muted/50 p-2 sm:p-3 text-xs sm:text-xs text-foreground whitespace-pre-wrap">{m.notes_text}</div>}
+                {m.action_items && <p className="text-xs sm:text-xs text-primary">Action: {m.action_items}</p>}
               </CardContent>
             </Card>
           ))}

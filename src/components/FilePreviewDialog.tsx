@@ -78,7 +78,7 @@ export function FilePreviewDialog({ file, onOpenChange }: Props) {
             <DialogHeader>
               <DialogTitle className="flex flex-wrap items-center gap-2 pr-6 text-left text-base">
                 <span className="break-all">{file.file_name}</span>
-                {kind === 'text' && <Badge variant="secondary" className="text-[10px]">{languageLabel(file.file_name)}</Badge>}
+                {kind === 'text' && <Badge variant="secondary" className="text-xs">{languageLabel(file.file_name)}</Badge>}
                 {size && <span className="text-xs font-normal text-muted-foreground">{size}</span>}
               </DialogTitle>
             </DialogHeader>

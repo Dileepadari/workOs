@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  AlertTriangle, Check, Loader2, Plus, Send, Sparkles, Trash2, Undo2, X, Pencil,
+  AlertTriangle, Check, Loader2, Mic, Plus, Send, Sparkles, Square, Trash2, Undo2, X, Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useInvalidate } from '@/hooks/useWorkData';
 import { cn } from '@/lib/utils';
+import { speechSupported } from '@/hooks/useCherryPrefs';
 
 interface Turn {
   id: string;
@@ -58,6 +59,10 @@ export function CherryPanel({ open, onClose }: { open: boolean; onClose: () => v
   const [confirmed, setConfirmed] = useState<Record<string, string[]>>({});
   const [typed, setTyped] = useState<Record<string, string>>({});
   const endRef = useRef<HTMLDivElement>(null);
+  const [listening, setListening] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const canSpeak = speechSupported();
 
   const scopeProjectId = location.pathname.startsWith('/projects/') ? params.id ?? null : null;
 
@@ -170,6 +175,46 @@ export function CherryPanel({ open, onClose }: { open: boolean; onClose: () => v
     }
   };
 
+  /**
+   * Dictation, using the browser's own recogniser.
+   *
+   * Deliberately not a service call: it needs no key and no audio ever leaves
+   * for us to handle. The trade is worth stating plainly - in Chrome the audio
+   * goes to Google to be transcribed, which is why this is a button you press
+   * rather than something always listening, and why it hides itself entirely
+   * in browsers with no recogniser rather than sitting there dead.
+   */
+  const toggleDictation = () => {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = '';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += chunk;
+        else interim += chunk;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+  };
+
   const toggleAction = (turnId: string, actionId: string) => {
     setConfirmed((c) => {
       const cur = c[turnId] ?? [];
@@ -183,10 +228,12 @@ export function CherryPanel({ open, onClose }: { open: boolean; onClose: () => v
     <>
       <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />
       <motion.aside
-        initial={reduceMotion ? false : { x: 32, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[27rem] flex-col border-l border-border bg-card shadow-2xl"
+        // Her opening: a small rise and settle rather than a slide-in, so the
+        // panel reads as something she said rather than a drawer.
+        initial={reduceMotion ? false : { y: 8, scale: 0.98, opacity: 0 }}
+        animate={{ y: 0, scale: 1, opacity: 1 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        className="cherry-panel-tail fixed inset-y-0 right-0 z-50 flex w-full max-w-[27rem] flex-col border-l border-border bg-card shadow-2xl lg:inset-y-auto lg:bottom-6 lg:right-[9.5rem] lg:max-h-[min(680px,calc(100vh-96px))] lg:rounded-xl lg:border"
         aria-label="Cherry"
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -287,10 +334,21 @@ export function CherryPanel({ open, onClose }: { open: boolean; onClose: () => v
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="What changed?"
+            placeholder={listening ? 'Listening...' : 'What changed?'}
             disabled={busy}
             aria-label="Message Cherry"
           />
+          {canSpeak && (
+            <Button
+              type="button" size="icon"
+              variant={listening ? 'destructive' : 'outline'}
+              onClick={toggleDictation}
+              disabled={busy}
+              aria-label={listening ? 'Stop dictating' : 'Dictate'}
+            >
+              {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+          )}
           <Button type="submit" size="icon" disabled={busy || !input.trim()}>
             <Send className="h-4 w-4" />
           </Button>

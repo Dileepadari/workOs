@@ -251,6 +251,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const p = (key: string, darkKey: string) => (isDark ? colors[darkKey] : colors[key]);
     // Moves an "H S% L%" triplet up or down in lightness, clamped. Used to
     // derive distinct surface levels from a palette that only defines one.
+    /**
+     * Black or white, whichever can actually be read on this colour.
+     *
+     * Foregrounds used to be hardcoded per theme - white on accent in light
+     * mode, near-black in dark. That works only if the accent happens to be
+     * dark. With a bright accent (this workspace's is a yellow-green at 53%
+     * lightness) white-on-accent came out at 1.55:1, so the label on every
+     * hovered ghost and outline button simply vanished. Ten built-in palettes
+     * plus a custom colour picker means the right answer has to be computed,
+     * not assumed.
+     */
+    const readableOn = (hsl: string): string => {
+      const m = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
+      if (!m) return '0 0% 100%';
+      const [h, sPct, lPct] = [parseFloat(m[1]) / 360, parseFloat(m[2]) / 100, parseFloat(m[3]) / 100];
+      const ch = (n: number) => {
+        const k = (n + h * 12) % 12;
+        const a = sPct * Math.min(lPct, 1 - lPct);
+        return lPct - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+      };
+      const lin = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+      const luminance = 0.2126 * lin(ch(0)) + 0.7152 * lin(ch(8)) + 0.0722 * lin(ch(4));
+      // Contrast against white vs against near-black; pick the better one.
+      return (1.05 / (luminance + 0.05)) >= ((luminance + 0.05) / 0.05) ? '0 0% 100%' : '0 0% 8%';
+    };
+
     const shiftL = (hsl: string, delta: number) => {
       const m = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
       if (!m) return hsl;
@@ -259,10 +285,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
 
     root.style.setProperty('--primary', p('primary', 'darkPrimary'));
-    root.style.setProperty('--primary-foreground', '0 0% 100%');
+    root.style.setProperty('--primary-foreground', readableOn(p('primary', 'darkPrimary')));
     root.style.setProperty('--primary-light', p('primaryLight', 'darkPrimaryLight'));
     root.style.setProperty('--accent', p('accent', 'darkAccent'));
-    root.style.setProperty('--accent-foreground', isDark ? '0 0% 10%' : '0 0% 100%');
+    root.style.setProperty('--accent-foreground', readableOn(p('accent', 'darkAccent')));
     root.style.setProperty('--accent-light', p('accentLight', 'darkAccentLight'));
     root.style.setProperty('--background', p('background', 'darkBackground'));
     root.style.setProperty('--foreground', p('text', 'darkText'));
@@ -288,7 +314,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--input', p('border', 'darkBorder'));
     root.style.setProperty('--ring', p('primary', 'darkPrimary'));
     root.style.setProperty('--destructive', colors.destructive);
-    root.style.setProperty('--destructive-foreground', '0 0% 100%');
+    root.style.setProperty('--destructive-foreground', readableOn(colors.destructive));
     root.style.setProperty('--destructive-light', colors.destructiveLight);
     root.style.setProperty('--success', colors.success);
     root.style.setProperty('--success-light', colors.successLight);
@@ -299,7 +325,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--sidebar-background', p('background', 'darkBackground'));
     root.style.setProperty('--sidebar-foreground', p('text', 'darkText'));
     root.style.setProperty('--sidebar-primary', p('primary', 'darkPrimary'));
-    root.style.setProperty('--sidebar-primary-foreground', '0 0% 100%');
+    root.style.setProperty('--sidebar-primary-foreground', readableOn(p('primary', 'darkPrimary')));
     root.style.setProperty('--sidebar-accent', p('surface', 'darkSurface'));
     root.style.setProperty('--sidebar-accent-foreground', p('text', 'darkText'));
     root.style.setProperty('--sidebar-border', p('border', 'darkBorder'));

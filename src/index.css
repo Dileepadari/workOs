@@ -573,10 +573,15 @@
 }
 .cherry-stage .vl-figure {
   display: block;
-  width: 118px;
-  height: 195px;
+  /* Small enough on a phone not to sit on top of the content she is there to
+     talk about, full size once there is room. */
+  width: 74px;
+  height: 122px;
   overflow: visible;
   filter: drop-shadow(0 14px 22px hsl(264 40% 10% / 0.22));
+}
+@media (min-width: 640px) {
+  .cherry-stage .vl-figure { width: 118px; height: 195px; }
 }
 
 @keyframes cherry-arrive {

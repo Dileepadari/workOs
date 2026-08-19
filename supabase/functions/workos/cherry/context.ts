@@ -34,6 +34,31 @@ export interface CherryContext {
   tasks: ContextRow[];
   keywordHits: ContextRow[];
   scopeProjectId: string | null;
+  /** Facts, for answering rather than for changing. See buildDigest. */
+  digest: Digest;
+}
+
+/**
+ * The numbers Cherry needs to answer a question.
+ *
+ * Without this she can only ever change things: the rest of the context is
+ * titles and handles, so "what is due next" or "how many tasks are open" had
+ * nothing behind them and she would either decline or guess. These are counted
+ * server-side from real rows, so an answer she gives is arithmetic rather than
+ * an impression.
+ */
+export interface Digest {
+  openTasks: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  overdue: { title: string; due: string; project: string | null }[];
+  overdueCount: number;
+  upcoming: { title: string; due: string; project: string | null }[];
+  unscheduled: number;
+  meetings: { title: string; when: string; project: string | null }[];
+  projects: { name: string; status: string; open: number; done: number }[];
+  focusMinutesThisWeek: number;
+  completedThisWeek: number;
 }
 
 const STOPWORDS = new Set([
@@ -150,7 +175,102 @@ export async function buildContext(
     }
   }
 
-  return { today, weekday, byHandle, projects, members, tasks, keywordHits, scopeProjectId };
+  const digest = await buildDigest(db, workspaceId, today, projects);
+
+  return { today, weekday, byHandle, projects, members, tasks, keywordHits, scopeProjectId, digest };
+}
+
+/** Counted from real rows, capped so the prompt stays small. */
+async function buildDigest(
+  db: Db,
+  workspaceId: string,
+  today: string,
+  projects: ContextRow[],
+): Promise<Digest> {
+  const nameOf = (id: string | null) => (id ? projects.find((p) => p.id === id)?.label ?? null : null);
+
+  const { data: taskRows } = await db
+    .from("tasks")
+    .select("title, status, priority, due_date, project_id, completed_at")
+    .eq("workspace_id", workspaceId)
+    .limit(1000);
+  const tasks = (taskRows ?? []) as {
+    title: string; status: string; priority: string;
+    due_date: string | null; project_id: string | null; completed_at: string | null;
+  }[];
+
+  const live = tasks.filter((t) => t.status !== "done" && t.status !== "dropped");
+  const byStatus: Record<string, number> = {};
+  const byPriority: Record<string, number> = {};
+  for (const t of live) {
+    byStatus[t.status] = (byStatus[t.status] ?? 0) + 1;
+    byPriority[t.priority] = (byPriority[t.priority] ?? 0) + 1;
+  }
+
+  const dated = live.filter((t) => t.due_date).sort((a, b) => a.due_date!.localeCompare(b.due_date!));
+  const overdueAll = dated.filter((t) => t.due_date! < today);
+  const upcomingAll = dated.filter((t) => t.due_date! >= today);
+
+  const shape = (t: typeof tasks[number]) => ({
+    title: t.title.slice(0, 80),
+    due: t.due_date!,
+    project: nameOf(t.project_id),
+  });
+
+  // Monday of this week, matching the book.
+  const monday = new Date(`${today}T00:00:00Z`);
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  const weekStart = monday.toISOString().slice(0, 10);
+
+  const completedThisWeek = tasks.filter(
+    (t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) >= weekStart,
+  ).length;
+
+  const { data: meetingRows } = await db
+    .from("meetings")
+    .select("title, scheduled_at, project_id")
+    .eq("workspace_id", workspaceId)
+    .gte("scheduled_at", `${today}T00:00:00Z`)
+    .order("scheduled_at", { ascending: true })
+    .limit(5);
+
+  const { data: focusRows } = await db
+    .from("focus_sessions")
+    .select("actual_minutes, was_break, started_at")
+    .eq("workspace_id", workspaceId)
+    .gte("started_at", `${weekStart}T00:00:00Z`)
+    .limit(500);
+
+  const openByProject = new Map<string, { open: number; done: number }>();
+  for (const t of tasks) {
+    if (!t.project_id) continue;
+    const entry = openByProject.get(t.project_id) ?? { open: 0, done: 0 };
+    if (t.status === "done") entry.done++;
+    else if (t.status !== "dropped") entry.open++;
+    openByProject.set(t.project_id, entry);
+  }
+
+  return {
+    openTasks: live.length,
+    byStatus,
+    byPriority,
+    overdue: overdueAll.slice(0, 5).map(shape),
+    overdueCount: overdueAll.length,
+    upcoming: upcomingAll.slice(0, 8).map(shape),
+    unscheduled: live.filter((t) => !t.due_date).length,
+    meetings: ((meetingRows ?? []) as { title: string; scheduled_at: string; project_id: string | null }[])
+      .map((m) => ({ title: m.title.slice(0, 80), when: m.scheduled_at, project: nameOf(m.project_id) })),
+    projects: projects.map((p) => ({
+      name: p.label,
+      status: p.detail ?? "active",
+      open: openByProject.get(p.id)?.open ?? 0,
+      done: openByProject.get(p.id)?.done ?? 0,
+    })),
+    focusMinutesThisWeek: ((focusRows ?? []) as { actual_minutes: number; was_break: boolean }[])
+      .filter((f) => !f.was_break)
+      .reduce((a, f) => a + (f.actual_minutes || 0), 0),
+    completedThisWeek,
+  };
 }
 
 /** The context as the model sees it: handles and labels, no ids. */
@@ -172,6 +292,32 @@ export function renderContext(ctx: CherryContext): string {
   section("People", ctx.members);
   section("Open tasks", ctx.tasks);
   section("Other matches", ctx.keywordHits);
+
+  const d = ctx.digest;
+  lines.push("");
+  lines.push("Where things stand right now:");
+  lines.push(`  ${d.openTasks} open tasks (${Object.entries(d.byStatus).map(([k, v]) => `${v} ${k.replace(/_/g, " ")}`).join(", ") || "none"})`);
+  if (Object.keys(d.byPriority).length) {
+    lines.push(`  by priority: ${Object.entries(d.byPriority).map(([k, v]) => `${v} ${k}`).join(", ")}`);
+  }
+  lines.push(`  ${d.overdueCount} overdue, ${d.unscheduled} with no due date`);
+  lines.push(`  ${d.completedThisWeek} closed this week, ${d.focusMinutesThisWeek} minutes of focus logged`);
+  if (d.overdue.length) {
+    lines.push("  Overdue:");
+    for (const t of d.overdue) lines.push(`    ${t.due}  ${t.title}${t.project ? ` (${t.project})` : ""}`);
+  }
+  if (d.upcoming.length) {
+    lines.push("  Next due:");
+    for (const t of d.upcoming) lines.push(`    ${t.due}  ${t.title}${t.project ? ` (${t.project})` : ""}`);
+  }
+  if (d.meetings.length) {
+    lines.push("  Upcoming meetings:");
+    for (const m of d.meetings) lines.push(`    ${m.when}  ${m.title}${m.project ? ` (${m.project})` : ""}`);
+  }
+  if (d.projects.length) {
+    lines.push("  Projects:");
+    for (const p of d.projects) lines.push(`    ${p.name} - ${p.open} open, ${p.done} done, ${p.status}`);
+  }
 
   if (ctx.scopeProjectId) {
     const name = ctxProjectName(ctx, ctx.scopeProjectId);

@@ -6,7 +6,7 @@
 // allowed to decide is absent from the schema rather than merely discouraged
 // in prose.
 
-import { CHERRY_TABLES } from "./schema.ts";
+import { CHERRY_TABLES, ENTITY_SCHEMA } from "./schema.ts";
 
 export const CHERRY_SYSTEM = `You are Cherry, the assistant inside WorkOS - a work manager holding projects, tasks, notes, milestones, meetings, events and links.
 
@@ -101,6 +101,31 @@ export const CHERRY_DRAFT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+
+/**
+ * The fields each entity actually has, rendered for the prompt.
+ *
+ * Without this the model guesses column names - "project" for project_id,
+ * "due" for due_date - and the server has to drop them and ask a question it
+ * already had the answer to. Aliases catch the common cases anyway, but
+ * telling it up front is cheaper than recovering afterwards.
+ */
+export function renderFieldGuide(): string {
+  const lines: string[] = [];
+  for (const [table, spec] of Object.entries(ENTITY_SCHEMA)) {
+    if (!spec.cherry.allowInsert && !spec.cherry.allowUpdate) continue;
+    const parts: string[] = [];
+    for (const [name, f] of Object.entries(spec.fields)) {
+      if (f.need === "optional" && !f.enum) continue;
+      const mark = f.need === "required" ? "*" : "";
+      const vals = f.enum ? ` (${f.enum.join("|")})` : "";
+      parts.push(`${name}${mark}${vals}`);
+    }
+    lines.push(`  ${table}: ${parts.join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
 export function buildUserPrompt(opts: {
   message: string;
   contextBlock: string;
@@ -112,6 +137,7 @@ export function buildUserPrompt(opts: {
   const parts: string[] = [];
 
   parts.push(`Today is ${opts.weekday}, ${opts.today}.`);
+  parts.push(`\nUse these exact field names. A * marks one the row cannot exist without; omit anything the message does not give you.\n${renderFieldGuide()}`);
   parts.push(`\n<workspace_context>\n${opts.contextBlock}\n</workspace_context>`);
 
   if (opts.history.length) {

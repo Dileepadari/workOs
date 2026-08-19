@@ -304,3 +304,40 @@ export const CHERRY_TABLES = Object.keys(ENTITY_SCHEMA) as CherryTable[];
 export function isCherryTable(t: string): t is CherryTable {
   return Object.prototype.hasOwnProperty.call(ENTITY_SCHEMA, t);
 }
+
+/**
+ * Names a model reaches for that are not the column name.
+ *
+ * The prompt lists the real fields, but "project" for project_id and "due"
+ * for due_date are what anyone would write, and silently dropping them turns
+ * a correct extraction into a needless question. Aliases are resolved before
+ * validation; anything still unrecognised is refused out loud.
+ */
+export const FIELD_ALIASES: Record<string, string> = {
+  project: "project_id",
+  project_name: "project_id",
+  assignee: "assignee_id",
+  owner: "assignee_id",
+  assigned_to: "assignee_id",
+  due: "due_date",
+  deadline: "due_date",
+  when: "scheduled_at",
+  date_time: "scheduled_at",
+  body: "content_text",
+  content: "content_text",
+  notes: "content_text",
+  estimate: "time_estimate_min",
+  link: "url",
+};
+
+/** The column a name refers to on this entity, or null if there is no such field. */
+export function resolveFieldName(table: CherryTable, name: string): string | null {
+  const spec = ENTITY_SCHEMA[table];
+  if (!spec) return null;
+  if (spec.fields[name]) return name;
+  const aliased = FIELD_ALIASES[name];
+  if (aliased && spec.fields[aliased]) return aliased;
+  // "name" and "title" are the same idea; which one is real depends on the table.
+  if ((name === "name" || name === "title") && spec.fields[spec.titleField]) return spec.titleField;
+  return null;
+}

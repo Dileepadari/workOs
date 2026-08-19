@@ -15,6 +15,10 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import bcrypt from "npm:bcryptjs@2";
+import {
+  handleCherryApply, handleCherryParse, handleCherryStatus, handleCherryTest, handleCherryUndo,
+  type CherryDeps,
+} from "./cherry/routes.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -606,6 +610,16 @@ export async function executeDataOp(
   return { error: "Unknown operation", status: 400 };
 }
 
+// Everything Cherry needs from this module, handed over explicitly so the
+// import only goes one way and so it is obvious that she has no privileged
+// path of her own - she runs the same authorize/execute pair as /data.
+const cherryDeps: CherryDeps = {
+  db,
+  json,
+  authorize: (op, user) => authorizeDataOp(op as DataOp, user),
+  execute: (op, user, config) => executeDataOp(op as DataOp, user, config as TableConfig),
+};
+
 // --- Comments, mentions, reactions, notifications, activity --------------
 //
 // Deliberately NOT routed through the generic /data gateway (unlike plain
@@ -1168,6 +1182,12 @@ Deno.serve(async (req) => {
   if (req.method === "GET" && invitesMatch) return handleListInvites(invitesMatch[1], user);
 
   if (req.method === "POST" && path === "/data") return handleData(req, user);
+
+  if (req.method === "GET" && path === "/cherry/status") return handleCherryStatus(cherryDeps);
+  if (req.method === "POST" && path === "/cherry/test") return handleCherryTest(req, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/parse") return handleCherryParse(req, user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/apply") return handleCherryApply(req, user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/undo") return handleCherryUndo(req, user, cherryDeps);
   if (req.method === "POST" && path === "/upload") return handleUpload(req);
   if (req.method === "GET" && path === "/file-text") return handleFileText(req);
   if (req.method === "DELETE" && path === "/file") return handleDeleteStoredFile(req);

@@ -123,7 +123,7 @@ export default function TagManager() {
                 <div className="flex-1">
                   <span className="text-sm font-medium text-foreground">{tag.name}</span>
                   <div className="flex gap-1 mt-1">
-                    {tag.tables.map(t => <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>)}
+                    {tag.tables.map(t => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
                   </div>
                 </div>
                 <Badge variant="secondary" className="text-xs">{tag.count} uses</Badge>

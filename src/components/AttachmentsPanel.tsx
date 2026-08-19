@@ -174,7 +174,7 @@ export function AttachmentsPanel({
               <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => inputRef.current?.click()}>
                 <Upload className="mr-1.5 h-3.5 w-3.5" />Choose files
               </Button>
-              {!compact && <p className="text-[10px] text-muted-foreground">or drag and drop them here</p>}
+              {!compact && <p className="text-xs text-muted-foreground">or drag and drop them here</p>}
             </>
           )}
         </div>
@@ -214,7 +214,7 @@ export function AttachmentsPanel({
                   >
                     {file.file_name}
                   </button>
-                  {size && <p className="text-[10px] text-muted-foreground">{size}</p>}
+                  {size && <p className="text-xs text-muted-foreground">{size}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                   <Button type="button" variant="ghost" size="icon" className="h-6 w-6" asChild>

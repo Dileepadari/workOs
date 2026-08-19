@@ -223,7 +223,7 @@ export default function Resources() {
                       />
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Paste a link, or upload a file to store and link it.</p>
+                  <p className="text-xs text-muted-foreground">Paste a link, or upload a file to store and link it.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Title</Label>
@@ -382,9 +382,9 @@ export default function Resources() {
                   <div className="mt-auto flex items-center justify-between border-t border-border pt-2.5">
                     <div className="flex items-center gap-2">
                       {l.short_key && (
-                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{l.short_key}</code>
+                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{l.short_key}</code>
                       )}
-                      <span className="text-[10px] text-muted-foreground">{l.click_count} opens</span>
+                      <span className="text-xs text-muted-foreground">{l.click_count} opens</span>
                     </div>
                     <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                       <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="View details" onClick={() => setViewingLink(l)}><Eye className="h-3 w-3" /></Button>
@@ -413,7 +413,7 @@ export default function Resources() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className={`text-xs capitalize ${categoryColors[viewingLink.category] || ''}`}>{viewingLink.category}</Badge>
                   {viewingLink.short_key && (
-                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{viewingLink.short_key}</code>
+                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{viewingLink.short_key}</code>
                   )}
                   <span className="text-xs text-muted-foreground">{viewingLink.click_count} opens</span>
                   <span className="text-xs text-muted-foreground">· saved {format(new Date(viewingLink.created_at), 'MMM d, yyyy')}</span>

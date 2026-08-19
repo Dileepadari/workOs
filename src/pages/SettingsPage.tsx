@@ -69,7 +69,7 @@ export default function SettingsPage() {
       // Two have been removed for exactly that reason: 'bookmarks', dropped in
       // the multi-tenant rebuild, and 'discussions', migrated into 'comments'
       // in stage 5 - which had been silently breaking "Export all" outright.
-      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'meetings', 'links', 'notes', 'events', 'saved_views', 'daily_log'] : ['projects'];
+      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'meetings', 'links', 'notes', 'events', 'saved_views', 'day_pages', 'week_pages', 'focus_sessions'] : ['projects'];
       const allData: Record<string, unknown[]> = {};
       for (const table of tables) {
         allData[table] = await api.select(table, wsId);

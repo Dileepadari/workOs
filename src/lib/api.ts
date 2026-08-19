@@ -6,6 +6,7 @@
 // multi-user workspaces.
 
 import { getToken, clearToken, decodeToken } from './authToken';
+import type { CherryApplyResult, CherryProposal, CherryTurn, CherryUndoToken } from './cherry';
 
 const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workos`;
 
@@ -439,4 +440,59 @@ export const attachments = {
       rows.map((row) => api.update('attachments', scope.workspaceId, row.id, { entity_id: toEntityId })),
     );
   },
+};
+
+// ------------------------------------------------------------------ Cherry --
+
+/**
+ * The assistant. `parse` proposes and never writes; `apply` writes only the
+ * actions whose ids are passed in, so there is no way to accidentally confirm
+ * everything. Answering a question re-posts to `parse` with the pending
+ * proposal and no message, which the server merges without calling a model.
+ */
+export const cherry = {
+  status: (): Promise<{ provider: string; model: string | null; reason: string }> =>
+    call('/cherry/status'),
+
+  test: (provider?: string): Promise<{ ok: boolean; provider: string; model?: string; error?: string }> =>
+    call('/cherry/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider }),
+    }),
+
+  parse: (input: {
+    workspace_id: string;
+    message?: string;
+    history?: CherryTurn[];
+    pending_proposal?: CherryProposal | null;
+    answers?: Record<string, unknown>;
+    resolutions?: Record<string, string>;
+    skips?: string[];
+    scope?: { project_id?: string | null };
+  }): Promise<{ proposal: CherryProposal; provider: string; degraded_from: string | null; provider_error: string | null }> =>
+    call('/cherry/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+
+  apply: (input: {
+    workspace_id: string;
+    proposal: CherryProposal;
+    confirmed_action_ids: string[];
+    typed_confirmations?: Record<string, string>;
+  }): Promise<CherryApplyResult> =>
+    call('/cherry/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+
+  undo: (workspaceId: string, undo: CherryUndoToken): Promise<{ reverted: number; failed: string[] }> =>
+    call('/cherry/undo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_id: workspaceId, undo }),
+    }),
 };

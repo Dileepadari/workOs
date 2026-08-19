@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Users, ChevronsUpDown, Plus, Check, KeyRound } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Users, ChevronsUpDown, Plus, Check, KeyRound, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -36,9 +36,8 @@ const navGroups = [
   {
     label: 'Personal',
     items: [
-      { to: '/log', icon: BookOpen, label: 'Daily Log' },
+      { to: '/book', icon: BookOpen, label: 'Your Book' },
       { to: '/focus', icon: Crosshair, label: 'Focus Mode' },
-      { to: '/review', icon: BarChart3, label: 'Weekly Review' },
     ],
   },
   {
@@ -50,7 +49,7 @@ const navGroups = [
   },
 ];
 
-interface Props { onClose?: () => void; }
+interface Props { onClose?: () => void; onOpenCherry?: () => void; }
 
 function WorkspaceSwitcher() {
   const { workspaces, currentWorkspace, switchWorkspace, createWorkspace } = useWorkspace();
@@ -116,7 +115,7 @@ function WorkspaceSwitcher() {
   );
 }
 
-export function AppSidebar({ onClose }: Props) {
+export function AppSidebar({ onClose, onOpenCherry }: Props) {
   const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -163,6 +162,20 @@ export function AppSidebar({ onClose }: Props) {
       </nav>
 
       <div className="border-t border-sidebar-border px-3 py-3 space-y-2">
+        {onOpenCherry && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={onOpenCherry}
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+            Ask Cherry
+            <kbd className="ml-auto rounded border border-sidebar-border px-1.5 py-0.5 text-[0.65rem] text-muted-foreground">
+              ⌘J
+            </kbd>
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

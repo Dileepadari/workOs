@@ -89,10 +89,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <AuthProvider>
         <WorkspaceProvider>
           <ThemeProvider>
+            {/* Sonner reads the app's theme, so it has to sit inside the
+                provider that owns it. It used to render above the tree and
+                pull from next-themes, which had no provider at all - which is
+                why toasts always came out in system theme. */}
+            <Sonner />
             <BrowserRouter>
               <SearchProvider>
                 <AppRoutes />

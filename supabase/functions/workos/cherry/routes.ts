@@ -232,7 +232,16 @@ export async function handleCherryParse(req: Request, user: AuthedUser, deps: Ch
 
     const outcome = validateAction(action, message, answers, skips);
     action.payload = cmd.operation === "delete" ? {} : outcome.payload;
-    action.fields = outcome.fields;
+    // A uuid tells the user nothing. Reference fields are shown by the name of
+    // the thing they point at, so "is this the right project?" is answerable
+    // by reading the card rather than by trusting it.
+    action.fields = outcome.fields.map((f) => {
+      const kind = spec.fields[f.field]?.kind;
+      if (kind !== "ref:projects" && kind !== "ref:users") return f;
+      const pool = kind === "ref:projects" ? ctx.projects : ctx.members;
+      const hit = pool.find((r) => r.id === String(f.value));
+      return hit ? { ...f, display: hit.label } : f;
+    });
     action.summary = summarise(action, spec.label);
     action.ready = outcome.missingRequired.length === 0 &&
       (cmd.operation === "insert" || Boolean(action.target));
@@ -430,8 +439,17 @@ function mergeAnswers(
   for (const action of next.actions) {
     const outcome = validateAction(action, null, answers, skips);
     if (action.operation !== "delete") {
+      // Re-validating recomputes every display string, which would undo the
+      // human labels the parse step resolved for reference fields - a project
+      // would silently turn back into a uuid the moment you answered an
+      // unrelated question. Carry forward the label wherever the value has
+      // not changed.
+      const previous = new Map(action.fields.map((f) => [`${f.field}:${String(f.value)}`, f.display]));
       action.payload = { ...action.payload, ...outcome.payload };
-      action.fields = outcome.fields;
+      action.fields = outcome.fields.map((f) => {
+        const kept = previous.get(`${f.field}:${String(f.value)}`);
+        return kept ? { ...f, display: kept } : f;
+      });
     }
     const spec = ENTITY_SCHEMA[action.table];
     action.summary = summarise(action, spec.label);

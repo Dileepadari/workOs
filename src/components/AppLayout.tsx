@@ -5,7 +5,7 @@ import { OnboardingWizard } from './OnboardingWizard';
 import { CherryPanel } from './cherry/CherryPanel';
 import { CherryLauncher } from './cherry/CherryLauncher';
 import { useCherryPrefs } from '@/hooks/useCherryPrefs';
-import { Menu, Sparkles } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoMark from '@/assets/logo-mark.png';
 
@@ -45,12 +45,6 @@ export function AppLayout() {
             <img src={logoMark} alt="" className="h-full w-full object-contain logo-mono" />
           </div>
           <span className="font-display text-sm font-semibold text-foreground">WorkOS</span>
-          <Button
-            variant="ghost" size="icon" className="ml-auto"
-            onClick={() => setCherryOpen(true)} aria-label="Open Cherry"
-          >
-            <Sparkles className="h-5 w-5" />
-          </Button>
         </div>
         <div className="px-4 py-5 sm:px-6 sm:py-6">
           <Outlet />

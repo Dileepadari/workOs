@@ -68,7 +68,9 @@ export function CherryLauncher({
       aria-label="Ask Cherry"
       aria-expanded={open}
       className={cn(
-        'cherry-stage fixed bottom-4 right-5 z-30 hidden cursor-pointer border-0 bg-transparent p-0 lg:block',
+        // Present on a phone too, just smaller. Hiding her below lg meant the
+        // one thing this app is built around simply did not exist on mobile.
+        'cherry-stage fixed bottom-3 right-3 z-30 cursor-pointer border-0 bg-transparent p-0 sm:bottom-4 sm:right-5',
         nudging && 'is-alerting',
         // She steps aside rather than sitting under her own panel.
         open && 'pointer-events-none opacity-0',

@@ -64,10 +64,12 @@ export default function SettingsPage() {
     if (!wsId) return;
     setExporting(true);
     try {
-      // 'bookmarks' dropped from this list - that table was removed in the
-      // multi-tenant rebuild (dead, zero rows); Resources.tsx's links table
-      // is the only "save a URL" store left.
-      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'discussions', 'meetings', 'links', 'notes', 'daily_log'] : ['projects'];
+      // Every name here must be a live entry in the gateway's CONTENT_TABLES
+      // allowlist, or the select 400s and takes the whole export down with it.
+      // Two have been removed for exactly that reason: 'bookmarks', dropped in
+      // the multi-tenant rebuild, and 'discussions', migrated into 'comments'
+      // in stage 5 - which had been silently breaking "Export all" outright.
+      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'meetings', 'links', 'notes', 'events', 'saved_views', 'daily_log'] : ['projects'];
       const allData: Record<string, unknown[]> = {};
       for (const table of tables) {
         allData[table] = await api.select(table, wsId);

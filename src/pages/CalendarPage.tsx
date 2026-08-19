@@ -514,7 +514,7 @@ export default function CalendarPage() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <PageHeader title="Calendar" />
+      <PageHeader title="Calendar" subtitle={"Tasks, milestones, meetings and events, together."} />
       <input ref={fileInputRef} type="file" accept=".ics,.ical,.ifb,.icalendar" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImportICS(e.target.files[0]); e.target.value = ''; }} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

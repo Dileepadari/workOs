@@ -496,3 +496,40 @@ export const cherry = {
       body: JSON.stringify({ workspace_id: workspaceId, undo }),
     }),
 };
+
+// ------------------------------------------------------------- preferences --
+
+export interface Preferences {
+  theme: string | null;
+  font: string | null;
+  focus_minutes: number | null;
+  break_minutes: number | null;
+  focus_sound: boolean | null;
+  notify_mentions: boolean | null;
+  notify_assignments: boolean | null;
+  onboarding_done: boolean | null;
+  cherry_provider: string | null;
+  cherry_avatar: string | null;
+  cherry_voice: boolean | null;
+  /** The keys themselves are never sent to the browser - only whether they
+   *  exist and their last four characters. */
+  has_anthropic_key: boolean;
+  has_gemini_key: boolean;
+  anthropic_key_hint: string | null;
+  gemini_key_hint: string | null;
+}
+
+/** Everything personal, stored per user rather than per browser. */
+export const preferences = {
+  get: (): Promise<{ preferences: Preferences }> => call('/preferences'),
+
+  /** Pass `anthropic_key`/`gemini_key` to set one, or an empty string to clear
+   *  it. They travel once, on the way to being encrypted at rest. */
+  update: (patch: Partial<Preferences> & { anthropic_key?: string; gemini_key?: string }):
+    Promise<{ preferences: Preferences }> =>
+    call('/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+};

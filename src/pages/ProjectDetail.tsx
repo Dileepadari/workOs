@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, CheckSquare, FileText, Flag, LinkIcon, MessageSquare, Calendar, Users, Plus, Trash2, ExternalLink, Clock, Edit2, ArrowRight, CheckCircle2, Circle, GitBranch, CalendarClock, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TASK_STATUSES, TASK_STATUS_LABELS, PRIORITY_COLORS, PROJECT_STATUS_COLORS, getNextStatus, type TaskStatus, type TaskPriority } from '@/lib/taskMeta';
 import { BlockEditor } from '@/components/editor/BlockEditor';
@@ -229,7 +228,7 @@ export default function ProjectDetail() {
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Button variant="ghost" size="icon" className="shrink-0" asChild><Link to="/projects"><ArrowLeft className="h-4 w-4" /></Link></Button>
-            <h1 className="text-lg sm:text-2xl font-semibold text-foreground">{project.name}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl font-semibold text-foreground">{project.name}</h1>
             <Badge className={`capitalize ${statusColors[project.status] || 'bg-muted text-muted-foreground'}`}>{project.status.replace('_', ' ')}</Badge>
             {project.type && <Badge variant="outline" className="capitalize text-xs">{project.type.replace('_', ' ')}</Badge>}
             {project.tags?.length > 0 && project.tags.map(t => <Badge key={t} variant="secondary" className="text-xs sm:text-xs">{t}</Badge>)}

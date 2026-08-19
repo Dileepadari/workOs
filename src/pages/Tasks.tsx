@@ -189,10 +189,10 @@ export default function Tasks() {
 
   return (
     <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-4">
-      <PageHeader title="Tasks" />
+      <PageHeader title="Tasks" subtitle={`${tasks.filter(t => t.status !== "done" && t.status !== "dropped").length} open of ${tasks.length}`} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{tasks.filter((t) => t.status !== 'done').length} open {tasks.filter((t) => t.status !== 'done').length === 1 ? 'task' : 'tasks'}</p>
+        <div />
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border border-border p-0.5">
             <Button variant={view === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setView('list')}><List className="h-3.5 w-3.5" /></Button>

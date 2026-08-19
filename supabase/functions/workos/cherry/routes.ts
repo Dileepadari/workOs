@@ -25,6 +25,8 @@ type AuthedUser = { sub: string; username: string; [k: string]: any };
 
 export interface CherryDeps {
   db: Db;
+  /** The caller's own decrypted AI keys, if they have set any. */
+  userKeys: (userId: string) => Promise<{ anthropic?: string; gemini?: string; provider?: string }>;
   json: (body: unknown, status?: number) => Response;
   authorize: (op: {
     table: string; operation: string; workspace_id: string;
@@ -40,14 +42,16 @@ export interface CherryDeps {
 
 // ------------------------------------------------------------- /status --
 
-export function handleCherryStatus(deps: CherryDeps): Response {
-  const p = resolveProvider();
+export async function handleCherryStatus(user: AuthedUser, deps: CherryDeps): Promise<Response> {
+  const keys = await deps.userKeys(user.sub);
+  const p = resolveProvider(undefined, keys);
   return deps.json({ provider: p.name, model: p.model ?? null, reason: p.reason });
 }
 
-export async function handleCherryTest(req: Request, deps: CherryDeps): Promise<Response> {
+export async function handleCherryTest(req: Request, user: AuthedUser, deps: CherryDeps): Promise<Response> {
   const body = await req.json().catch(() => ({}));
-  const result = await testProvider(body?.provider);
+  const keys = await deps.userKeys(user.sub);
+  const result = await testProvider(body?.provider, keys);
   return deps.json(result, result.ok ? 200 : 400);
 }
 
@@ -98,7 +102,8 @@ export async function handleCherryParse(req: Request, user: AuthedUser, deps: Ch
     weekday: ctx.weekday,
   });
 
-  const { draft, provider, degradedFrom, error } = await parseCommand(message, prompt, ctx, body?.provider);
+  const keys = await deps.userKeys(user.sub);
+  const { draft, provider, degradedFrom, error } = await parseCommand(message, prompt, ctx, body?.provider, keys);
 
   const proposal: CherryProposal = {
     proposal_id: crypto.randomUUID(),

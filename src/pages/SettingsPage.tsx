@@ -124,9 +124,17 @@ export default function SettingsPage() {
                 <p className="text-xs sm:text-sm text-muted-foreground">Username</p>
                 <p className="text-xs sm:text-sm text-foreground">{user?.username}</p>
               </div>
+              {/* The raw uuid told nobody anything and took the most readable
+                  line in the card to do it. What people actually want here is
+                  which workspace they are signed in to. */}
               <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">User ID</p>
-                <p className="font-mono text-xs sm:text-xs text-muted-foreground break-all">{user?.id}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Workspace</p>
+                <p className="text-xs sm:text-sm text-foreground">
+                  {currentWorkspace?.name ?? '-'}
+                  {currentWorkspace?.role && (
+                    <span className="text-muted-foreground"> · {currentWorkspace.role}</span>
+                  )}
+                </p>
               </div>
             </CardContent>
           </Card>

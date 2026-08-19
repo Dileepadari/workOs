@@ -43,7 +43,7 @@ export default function Auth() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 p-2.5">
             <img src={logoMark} alt="" className="h-full w-full object-contain logo-mono" />
           </div>
-          <CardTitle>{isSignUp ? 'Create Account' : 'Welcome Back'}</CardTitle>
+          <CardTitle className="font-display text-2xl">{isSignUp ? 'Create your account' : 'Welcome back'}</CardTitle>
           <CardDescription>
             {isSignUp ? 'Set up your WorkOS workspace' : 'Sign in to your workspace'}
           </CardDescription>

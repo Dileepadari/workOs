@@ -95,7 +95,7 @@ export default function Notes() {
 
   return (
     <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
-      <PageHeader title="Notes" />
+      <PageHeader title="Notes" subtitle={`${notes.length} ${notes.length === 1 ? "note" : "notes"}`} />
 
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</p>

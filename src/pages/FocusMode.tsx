@@ -171,7 +171,7 @@ export default function FocusMode() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Focus Mode" />
+      <PageHeader title="Focus Mode" subtitle={sessions ? `${sessions} ${sessions === 1 ? "block" : "blocks"} today, ${focusedMinutes}m focused` : "Nothing logged today. One block is enough to start the record."} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Timer column */}

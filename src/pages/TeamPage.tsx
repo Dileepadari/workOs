@@ -92,7 +92,7 @@ export default function TeamPage() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Team" />
+      <PageHeader title="Team" subtitle={`${members.length} ${members.length === 1 ? "member" : "members"}${invites.length ? `, ${invites.length} invited` : ""}`} />
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">

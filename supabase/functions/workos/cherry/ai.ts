@@ -36,11 +36,20 @@ export interface ResolvedProvider {
  * that Cherry is running without a key, rather than letting the user discover
  * it from disappointing output.
  */
-export function resolveProvider(preference?: string): ResolvedProvider {
-  const anthropicKey = Deno.env.get("CHERRY_ANTHROPIC_API_KEY") ?? "";
-  const geminiKey = Deno.env.get("CHERRY_GEMINI_API_KEY") ?? "";
-  const configured = (preference && preference !== "auto")
-    ? preference
+export interface UserKeys {
+  anthropic?: string;
+  gemini?: string;
+  provider?: string;
+}
+
+export function resolveProvider(preference?: string, userKeys: UserKeys = {}): ResolvedProvider {
+  // Their own key wins over the server's. Someone who has supplied a key is
+  // paying for it and expects it to be the one used.
+  const anthropicKey = userKeys.anthropic || Deno.env.get("CHERRY_ANTHROPIC_API_KEY") || "";
+  const geminiKey = userKeys.gemini || Deno.env.get("CHERRY_GEMINI_API_KEY") || "";
+  const chosen = preference && preference !== "auto" ? preference : userKeys.provider;
+  const configured = (chosen && chosen !== "auto")
+    ? chosen
     : (Deno.env.get("CHERRY_AI_PROVIDER") ?? "auto");
   const model = Deno.env.get("CHERRY_AI_MODEL") || undefined;
 
@@ -56,8 +65,8 @@ export function resolveProvider(preference?: string): ResolvedProvider {
     return { name: "gemini", apiKey: geminiKey, model: model ?? DEFAULT_MODELS.gemini, reason: "Gemini, selected in settings." };
   }
 
-  if (anthropicKey) return { name: "anthropic", apiKey: anthropicKey, model: model ?? DEFAULT_MODELS.anthropic, reason: "Anthropic key found." };
-  if (geminiKey) return { name: "gemini", apiKey: geminiKey, model: model ?? DEFAULT_MODELS.gemini, reason: "Gemini key found." };
+  if (anthropicKey) return { name: "anthropic", apiKey: anthropicKey, model: model ?? DEFAULT_MODELS.anthropic, reason: userKeys.anthropic ? "Using your Anthropic key." : "Anthropic key found." };
+  if (geminiKey) return { name: "gemini", apiKey: geminiKey, model: model ?? DEFAULT_MODELS.gemini, reason: userKeys.gemini ? "Using your Gemini key." : "Gemini key found." };
   return { name: "builtin", reason: "No AI key is configured, so Cherry is using her built-in parser." };
 }
 
@@ -74,8 +83,9 @@ export async function parseCommand(
   prompt: string,
   ctx: CherryContext,
   preference?: string,
+  userKeys: UserKeys = {},
 ): Promise<ParseOutcome> {
-  const provider = resolveProvider(preference);
+  const provider = resolveProvider(preference, userKeys);
 
   if (provider.name === "builtin") {
     return { draft: parseCommandLexically(message, ctx), provider: "builtin" };
@@ -99,8 +109,8 @@ export async function parseCommand(
 }
 
 /** Verifies a key works, without falling back - Settings needs the truth. */
-export async function testProvider(preference?: string): Promise<{ ok: boolean; provider: ProviderName; model?: string; error?: string }> {
-  const provider = resolveProvider(preference);
+export async function testProvider(preference?: string, userKeys: UserKeys = {}): Promise<{ ok: boolean; provider: ProviderName; model?: string; error?: string }> {
+  const provider = resolveProvider(preference, userKeys);
   if (provider.name === "builtin") {
     return { ok: true, provider: "builtin" };
   }

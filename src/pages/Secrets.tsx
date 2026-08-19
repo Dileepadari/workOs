@@ -226,7 +226,7 @@ export default function Secrets() {
 
   return (
     <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
-      <PageHeader title="Secrets" />
+      <PageHeader title="Secrets" subtitle={`${items.length} encrypted ${items.length === 1 ? "entry" : "entries"}. Values are never shown until you ask.`} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">

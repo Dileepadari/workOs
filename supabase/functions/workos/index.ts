@@ -616,6 +616,7 @@ export async function executeDataOp(
 const cherryDeps: CherryDeps = {
   db,
   json,
+  userKeys: (userId) => userAiKeys(userId),
   authorize: (op, user) => authorizeDataOp(op as DataOp, user),
   execute: (op, user, config) => executeDataOp(op as DataOp, user, config as TableConfig),
 };
@@ -885,6 +886,117 @@ async function decryptSecret(stored: string): Promise<string> {
     base64UrlDecode(encodedCiphertext),
   );
   return new TextDecoder().decode(plaintext);
+}
+
+
+// --- Personal preferences ------------------------------------------------
+//
+// Per user, not per workspace: who your assistant is, which theme you use and
+// which AI key you bring are yours, and should follow you to another browser
+// rather than living in one machine's localStorage.
+//
+// The two API keys are write-only over this API. They go in encrypted with the
+// same scheme as the secrets vault, and the only thing ever read back is
+// whether one is set plus its last four characters - enough for the UI to say
+// "your Gemini key ending 4f2a" without the browser ever holding the key.
+
+const PREF_COLUMNS = [
+  "theme", "font", "focus_minutes", "break_minutes", "focus_sound",
+  "notify_mentions", "notify_assignments", "onboarding_done",
+  "cherry_provider", "cherry_avatar", "cherry_voice",
+] as const;
+
+interface PrefRow { [k: string]: unknown }
+
+function publicPreferences(row: PrefRow | null) {
+  const base: Record<string, unknown> = {};
+  for (const c of PREF_COLUMNS) base[c] = row?.[c] ?? null;
+  return {
+    ...base,
+    // Never the keys themselves.
+    has_anthropic_key: Boolean(row?.anthropic_key_encrypted),
+    has_gemini_key: Boolean(row?.gemini_key_encrypted),
+    anthropic_key_hint: (row?.anthropic_key_hint as string) ?? null,
+    gemini_key_hint: (row?.gemini_key_hint as string) ?? null,
+  };
+}
+
+async function loadPreferences(userId: string): Promise<PrefRow | null> {
+  const { data } = await db.from("user_preferences").select("*").eq("user_id", userId).maybeSingle();
+  return data ?? null;
+}
+
+async function handleGetPreferences(user: AuthedUser): Promise<Response> {
+  let row = await loadPreferences(user.sub);
+  if (!row) {
+    // Created on first read rather than at signup, so existing accounts get
+    // one without a backfill migration.
+    const { data } = await db.from("user_preferences").insert({ user_id: user.sub }).select().single();
+    row = data ?? null;
+  }
+  return json({ preferences: publicPreferences(row) });
+}
+
+async function handleUpdatePreferences(req: Request, user: AuthedUser): Promise<Response> {
+  const body = await req.json().catch(() => ({}));
+  const patch: Record<string, unknown> = { user_id: user.sub, updated_at: new Date().toISOString() };
+
+  for (const c of PREF_COLUMNS) {
+    if (c in body) patch[c] = body[c];
+  }
+
+  // A key arrives as plaintext exactly once, on its way to being encrypted.
+  // An empty string means "clear it", which has to be distinguishable from
+  // "leave it alone" - hence the `in body` check rather than a truthiness one.
+  for (const [field, column] of [["anthropic_key", "anthropic"], ["gemini_key", "gemini"]] as const) {
+    if (!(field in body)) continue;
+    const value = String(body[field] ?? "").trim();
+    if (!value) {
+      patch[`${column}_key_encrypted`] = null;
+      patch[`${column}_key_hint`] = null;
+      continue;
+    }
+    if (!SECRETS_KEY) {
+      return json({ error: "Server is missing WORKOS_SECRETS_KEY, so keys cannot be stored safely." }, 500);
+    }
+    patch[`${column}_key_encrypted`] = await encryptSecret(value);
+    patch[`${column}_key_hint`] = value.slice(-4);
+  }
+
+  const { data, error } = await db
+    .from("user_preferences")
+    .upsert(patch, { onConflict: "user_id" })
+    .select()
+    .single();
+  if (error) return json({ error: error.message }, 400);
+  return json({ preferences: publicPreferences(data) });
+}
+
+/**
+ * The caller's own decrypted keys, for Cherry.
+ *
+ * Only ever called server-side, inside a request that already authenticated
+ * that user. A key that fails to decrypt is treated as absent rather than
+ * fatal - that means WORKOS_SECRETS_KEY was rotated, and the right behaviour
+ * is to fall back to the server's own key and let them re-enter theirs.
+ */
+export async function userAiKeys(userId: string): Promise<{ anthropic?: string; gemini?: string; provider?: string; avatar?: string }> {
+  const row = await loadPreferences(userId);
+  if (!row) return {};
+  const out: { anthropic?: string; gemini?: string; provider?: string; avatar?: string } = {
+    provider: (row.cherry_provider as string) ?? "auto",
+    avatar: (row.cherry_avatar as string) ?? "cherry",
+  };
+  for (const [key, column] of [["anthropic", "anthropic_key_encrypted"], ["gemini", "gemini_key_encrypted"]] as const) {
+    const stored = row[column] as string | null;
+    if (!stored) continue;
+    try {
+      out[key] = await decryptSecret(stored);
+    } catch {
+      // Rotated key: behave as though they had not set one.
+    }
+  }
+  return out;
 }
 
 /** Secrets are workspace-wide and sensitive - guests never get access. */
@@ -1183,8 +1295,11 @@ Deno.serve(async (req) => {
 
   if (req.method === "POST" && path === "/data") return handleData(req, user);
 
-  if (req.method === "GET" && path === "/cherry/status") return handleCherryStatus(cherryDeps);
-  if (req.method === "POST" && path === "/cherry/test") return handleCherryTest(req, cherryDeps);
+  if (req.method === "GET" && path === "/preferences") return handleGetPreferences(user);
+  if (req.method === "PATCH" && path === "/preferences") return handleUpdatePreferences(req, user);
+
+  if (req.method === "GET" && path === "/cherry/status") return handleCherryStatus(user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/test") return handleCherryTest(req, user, cherryDeps);
   if (req.method === "POST" && path === "/cherry/parse") return handleCherryParse(req, user, cherryDeps);
   if (req.method === "POST" && path === "/cherry/apply") return handleCherryApply(req, user, cherryDeps);
   if (req.method === "POST" && path === "/cherry/undo") return handleCherryUndo(req, user, cherryDeps);

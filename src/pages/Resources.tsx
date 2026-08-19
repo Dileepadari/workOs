@@ -182,7 +182,7 @@ export default function Resources() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Resources" />
+      <PageHeader title="Resources" subtitle={`${links.length} saved ${links.length === 1 ? "link" : "links"}`} />
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">

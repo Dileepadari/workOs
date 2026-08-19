@@ -1,10 +1,15 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { workspaces as workspacesApi } from '@/lib/api';
+import { workspaces as workspacesApi, preferences as preferencesApi } from '@/lib/api';
 import { useWorkspace } from './WorkspaceContext';
+import { useAuth } from './AuthContext';
 
 // Single source of truth for all theming - merges what used to be two
 // separate, unsynchronized providers (ThemeContext + ColorThemeContext).
-// Light/dark mode + font are personal (localStorage). Color palette / custom
+// Light/dark mode + font are personal and live in `user_preferences`, so they
+// follow the person rather than the machine. localStorage still holds a copy,
+// but only as a paint cache: it is read once on mount to avoid a flash of the
+// wrong theme while the preferences request is in flight, and is never the
+// source of truth. Color palette / custom
 // brand color are a workspace-wide identity, persisted server-side via
 // workspace_settings so every member of the team sees the same branding -
 // not per-browser localStorage.
@@ -218,6 +223,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return (stored === 'light' || stored === 'dark') ? stored : 'dark';
   });
   const [font, setFontState] = useState<Font>(() => (localStorage.getItem('workos-font') as Font) || 'sans');
+  const { user } = useAuth();
+  // False until the server's copy has been applied, so hydration is not
+  // mistaken for a user edit and written straight back.
+  const [hydrated, setHydrated] = useState(false);
 
   // Cached immediately from localStorage for instant paint (pre-login, or
   // before the workspace_settings fetch resolves); source of truth once a
@@ -343,11 +352,44 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // fontFamily on <html> - that fought `body { @apply font-sans }` and
     // whichever won depended on cascade order.
     root.style.setProperty('--app-font', fontFamilies[font]);
+    // Paint cache only - the authoritative copy is written to the server by
+    // the effect below.
     localStorage.setItem('workos-theme', theme);
     localStorage.setItem('workos-font', font);
     applyColors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, font, colorPalette, customPrimaryHex, customAccentHex]);
+
+  /**
+   * The server is the source of truth for mode and font.
+   *
+   * Hydrated once after sign-in, which overrides whatever this browser had
+   * cached - that is the point: your theme should follow you to a new machine
+   * rather than resetting to whatever that machine last saw. `hydrated` guards
+   * the write-back so the first server value is not immediately echoed back as
+   * though the user had just changed it.
+   */
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    preferencesApi.get()
+      .then(({ preferences: p }) => {
+        if (cancelled) return;
+        if (p.theme === 'light' || p.theme === 'dark') setTheme(p.theme);
+        if (p.font) setFontState(p.font as Font);
+        setHydrated(true);
+      })
+      .catch(() => setHydrated(true));
+    return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !hydrated) return;
+    preferencesApi.update({ theme, font }).catch(() => {
+      // A failed preference write is not worth interrupting anyone over; the
+      // paint cache keeps this browser correct until the next successful save.
+    });
+  }, [theme, font, user, hydrated]);
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   const setFont = (newFont: Font) => setFontState(newFont);

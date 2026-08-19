@@ -507,3 +507,92 @@
 .dark .logo-mono {
   filter: brightness(0) invert(1);
 }
+
+/* Written content: code, READMEs and pasted logs.
+   ------------------------------------------------
+   The rule these all serve: nothing a user pastes should be able to stretch
+   the card it sits in. A minified line, a long URL or a base64 blob is a
+   horizontal scroll inside its own block, never a page that scrolls sideways. */
+.bn-container .bn-block-content[data-content-type="codeBlock"] pre,
+.bn-container pre {
+  overflow-x: auto;
+  white-space: pre;          /* indentation is meaning in code, so keep it */
+  tab-size: 2;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.6);
+  padding: 0.85rem 1rem;
+}
+
+/* Inline code reads as a token, not as a box. */
+.bn-container code:not(pre code) {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+  background: hsl(var(--muted));
+}
+
+/* Prose blocks break long unbroken strings rather than pushing the card
+   wider - the fix already applied to dialogs, applied everywhere. */
+.bn-container .bn-block-content[data-content-type="paragraph"],
+.bn-container .bn-block-content[data-content-type="heading"],
+.bn-container blockquote {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.bn-container table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Readable measure for prose. Code and tables opt out - they need the width. */
+.prose-measure > .bn-container .bn-block-content[data-content-type="paragraph"] {
+  max-width: 68ch;
+}
+
+/* ===========================
+   PRINT
+   ===========================
+   /book/print renders the whole book and hands it to the browser's own PDF
+   export. Chrome is the print engine; this is the binding. */
+@media print {
+  @page {
+    size: A5;
+    margin: 14mm 12mm;
+  }
+
+  /* Anything that only exists to be clicked has no business on paper. */
+  .no-print, aside, nav, button { display: none !important; }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* One page per leaf. `break-after` rather than the deprecated
+     page-break-after, and `avoid` inside so a metric grid is never split
+     across a sheet. */
+  .print-page {
+    break-after: page;
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+  .print-page:last-child { break-after: auto; }
+
+  .page-surface {
+    box-shadow: none !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #000 !important;
+  }
+
+  h1, h2, h3, dl, blockquote { break-inside: avoid; }
+}

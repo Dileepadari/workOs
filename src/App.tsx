@@ -20,6 +20,7 @@ import Notes from "./pages/Notes";
 import Resources from "./pages/Resources";
 import Secrets from "./pages/Secrets";
 import Book from "./pages/Book";
+import BookPrint from "./pages/BookPrint";
 import SettingsPage from "./pages/SettingsPage";
 import TeamPage from "./pages/TeamPage";
 import CalendarPage from "./pages/CalendarPage";
@@ -62,6 +63,7 @@ function AppRoutes() {
       <SearchShortcut />
       <SearchDialog />
       <Routes>
+        <Route path="/book/print" element={<ProtectedRoute><BookPrint /></ProtectedRoute>} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

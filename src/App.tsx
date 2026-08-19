@@ -19,12 +19,11 @@ import Tasks from "./pages/Tasks";
 import Notes from "./pages/Notes";
 import Resources from "./pages/Resources";
 import Secrets from "./pages/Secrets";
-import DailyLog from "./pages/DailyLog";
+import Book from "./pages/Book";
 import SettingsPage from "./pages/SettingsPage";
 import TeamPage from "./pages/TeamPage";
 import CalendarPage from "./pages/CalendarPage";
 import FocusMode from "./pages/FocusMode";
-import WeeklyReview from "./pages/WeeklyReview";
 import TagManager from "./pages/TagManager";
 import NotFound from "./pages/NotFound";
 
@@ -73,10 +72,9 @@ function AppRoutes() {
           <Route path="notes" element={<Notes />} />
           <Route path="resources" element={<Resources />} />
           <Route path="secrets" element={<Secrets />} />
-          <Route path="log" element={<DailyLog />} />
+            <Route path="book" element={<Book />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="focus" element={<FocusMode />} />
-          <Route path="review" element={<WeeklyReview />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/tags" element={<TagManager />} />

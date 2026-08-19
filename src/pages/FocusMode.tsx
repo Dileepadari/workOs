@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useCreate, useFocusSessions, type FocusSessionRow } from '@/hooks/useWorkData';
+import { isSameDay, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Button } from '@/components/ui/button';
@@ -61,7 +63,13 @@ export default function FocusMode() {
   const [breakDuration, setBreakDuration] = useState(5);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isBreak, setIsBreak] = useState(false);
-  const [sessions, setSessions] = useState(0);
+  // Sessions used to be a number in React state, so a refresh threw the whole
+  // day away and nothing ever reached the database. They are rows now, which
+  // is also what lets focus minutes appear on a day page.
+  const { data: allSessions = [] } = useFocusSessions();
+  const logSession = useCreate<FocusSessionRow>('focus_sessions');
+  const startedAtRef = useRef<string | null>(null);
+  const [interruptions, setInterruptions] = useState(0);
   const [completeTaskConfirm, setCompleteTaskConfirm] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -89,7 +97,23 @@ export default function FocusMode() {
 
   const handleTimerComplete = useCallback(() => {
     if (!isBreak) {
-      setSessions(s => s + 1);
+      // Record the block before resetting anything - a finished session is a
+      // fact, and losing it because the tab closed a second later is the bug
+      // this replaced.
+      const startedAt = startedAtRef.current ?? new Date(Date.now() - focusDuration * 60_000).toISOString();
+      logSession.mutate({
+        started_at: startedAt,
+        ended_at: new Date().toISOString(),
+        planned_minutes: focusDuration,
+        actual_minutes: focusDuration,
+        task_id: selectedTask || null,
+        project_id: tasks.find(t => t.id === selectedTask)?.project_id ?? null,
+        was_break: false,
+        interruptions,
+        completed: true,
+      });
+      startedAtRef.current = null;
+      setInterruptions(0);
       if (soundEnabled) playBeep(3);
       sendNotification('Focus session complete!', 'Time for a break.');
       setIsBreak(true);
@@ -101,7 +125,7 @@ export default function FocusMode() {
       setTimeLeft(focusDuration * 60);
     }
     setIsRunning(false);
-  }, [isBreak, breakDuration, focusDuration, soundEnabled]);
+  }, [isBreak, breakDuration, focusDuration, soundEnabled, interruptions, selectedTask, tasks, logSession]);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -112,7 +136,10 @@ export default function FocusMode() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRunning, timeLeft, handleTimerComplete]);
 
-  const toggleTimer = () => setIsRunning(!isRunning);
+  const toggleTimer = () => {
+    if (!isRunning && !isBreak && !startedAtRef.current) startedAtRef.current = new Date().toISOString();
+    setIsRunning(!isRunning);
+  };
   const resetTimer = () => { setIsRunning(false); setTimeLeft(isBreak ? breakDuration * 60 : focusDuration * 60); };
 
   const applySettings = () => {
@@ -132,6 +159,11 @@ export default function FocusMode() {
 
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
+  const todaySessions = allSessions.filter(
+    (x) => !x.was_break && isSameDay(parseISO(x.started_at), new Date()),
+  );
+  const sessions = todaySessions.length;
+  const focusedMinutes = todaySessions.reduce((a, x) => a + (x.actual_minutes || 0), 0);
   const totalSecs = isBreak ? breakDuration * 60 : focusDuration * 60;
   const pct = ((totalSecs - timeLeft) / totalSecs) * 100;
   const currentTask = tasks.find(t => t.id === selectedTask);
@@ -221,7 +253,7 @@ export default function FocusMode() {
             <Card>
               <CardContent className="flex flex-col items-center gap-1.5 p-4 text-center">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10"><Clock className="h-4.5 w-4.5 text-success" /></div>
-                <p className="text-2xl font-bold text-foreground tabular-nums">{sessions * focusDuration}m</p>
+                <p className="text-2xl font-bold text-foreground tabular-nums">{focusedMinutes}m</p>
                 <p className="text-xs text-muted-foreground">Focused time</p>
               </CardContent>
             </Card>

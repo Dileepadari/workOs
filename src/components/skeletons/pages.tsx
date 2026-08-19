@@ -126,49 +126,9 @@ export function ResourcesSkeleton() {
   );
 }
 
-export function DailyLogSkeleton() {
-  return (
-    <div className="animate-fade-in space-y-6">
-      <Skeleton className="h-8 w-28" />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-9 w-9 rounded-md" />
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-9 w-9 rounded-md" />
-        </div>
-        <div className="flex gap-1.5">
-          {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-14 w-11 rounded-lg" />)}
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <PanelSkeleton lines={6} />
-        </div>
-        <div className="space-y-4">
-          <PanelSkeleton lines={1} />
-          <PanelSkeleton lines={2} />
-          <PanelSkeleton lines={2} />
-        </div>
-      </div>
-    </div>
-  );
-}
 
-/** Just the two-column body - DailyLog's header/week-strip already render before the loading check. */
-export function DailyLogBodySkeleton() {
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-2">
-        <PanelSkeleton lines={6} />
-      </div>
-      <div className="space-y-4">
-        <PanelSkeleton lines={1} />
-        <PanelSkeleton lines={2} />
-        <PanelSkeleton lines={2} />
-      </div>
-    </div>
-  );
-}
+
+
 
 /** A handful of avatar+name rows - for the Members card only, TeamPage's stats/invite form already render. */
 export function MemberListSkeleton({ count = 3 }: { count?: number }) {
@@ -185,23 +145,7 @@ export function MemberListSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
-export function WeeklyReviewSkeleton() {
-  return (
-    <div className="animate-fade-in space-y-6">
-      <Skeleton className="h-8 w-36" />
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-8 w-24 rounded-md" />
-      </div>
-      <StatTileGridSkeleton count={5} />
-      <Skeleton className="h-52 w-full rounded-lg" />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PanelSkeleton lines={2} />
-        <PanelSkeleton lines={3} />
-      </div>
-    </div>
-  );
-}
+
 
 export function TeamSkeleton() {
   return (

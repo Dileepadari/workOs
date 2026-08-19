@@ -249,6 +249,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     const isDark = root.classList.contains('dark');
     const p = (key: string, darkKey: string) => (isDark ? colors[darkKey] : colors[key]);
+    // Moves an "H S% L%" triplet up or down in lightness, clamped. Used to
+    // derive distinct surface levels from a palette that only defines one.
+    const shiftL = (hsl: string, delta: number) => {
+      const m = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
+      if (!m) return hsl;
+      const l = Math.max(0, Math.min(100, parseFloat(m[3]) + delta));
+      return `${m[1]} ${m[2]}% ${l.toFixed(1)}%`;
+    };
 
     root.style.setProperty('--primary', p('primary', 'darkPrimary'));
     root.style.setProperty('--primary-foreground', '0 0% 100%');
@@ -258,13 +266,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--accent-light', p('accentLight', 'darkAccentLight'));
     root.style.setProperty('--background', p('background', 'darkBackground'));
     root.style.setProperty('--foreground', p('text', 'darkText'));
+    // Card, secondary and muted used to be set to the *same* surface value,
+    // which collapsed three distinct levels into one. Everything then had
+    // identical weight - a dozen cards on a page with nothing separating a
+    // container from its content - which reads as clutter even when the
+    // information is fine. They are now nudged apart from the palette's own
+    // surface: cards sit slightly proud of the background, muted sits behind
+    // it, and secondary sits between them.
     root.style.setProperty('--card', p('surface', 'darkSurface'));
     root.style.setProperty('--card-foreground', p('text', 'darkText'));
     root.style.setProperty('--popover', p('surface', 'darkSurface'));
     root.style.setProperty('--popover-foreground', p('text', 'darkText'));
-    root.style.setProperty('--secondary', p('surface', 'darkSurface'));
+    root.style.setProperty('--secondary', shiftL(p('surface', 'darkSurface'), isDark ? 4 : -3));
     root.style.setProperty('--secondary-foreground', p('text', 'darkText'));
-    root.style.setProperty('--muted', p('surface', 'darkSurface'));
+    root.style.setProperty('--muted', shiftL(p('surface', 'darkSurface'), isDark ? 7 : -5));
     root.style.setProperty('--muted-foreground', p('textMuted', 'darkTextMuted'));
     root.style.setProperty('--border', p('border', 'darkBorder'));
     // Was wrongly bound to the card/surface color, which is near-white in
@@ -298,7 +313,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
-    root.style.fontFamily = fontFamilies[font];
+    // Set as a variable the body rule can pick up, rather than as an inline
+    // fontFamily on <html> - that fought `body { @apply font-sans }` and
+    // whichever won depended on cascade order.
+    root.style.setProperty('--app-font', fontFamilies[font]);
     localStorage.setItem('workos-theme', theme);
     localStorage.setItem('workos-font', font);
     applyColors();

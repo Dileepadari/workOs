@@ -51,6 +51,10 @@ function sendNotification(title: string, body: string) {
   }
 }
 
+/** Radix Select reserves the empty string, so "nothing selected" needs a
+ *  value of its own. Never stored - it maps back to '' before use. */
+const NO_TASK = '__none__';
+
 export default function FocusMode() {
   const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
@@ -179,11 +183,19 @@ export default function FocusMode() {
           <CardContent className="flex flex-col items-center justify-center gap-8 py-12">
             {/* Task selector */}
             <div className="w-full max-w-md">
-              <Select value={selectedTask} onValueChange={setSelectedTask}>
+              {/* Picking a task used to be a one-way door: the list held only
+                  tasks, and Radix will not accept an empty string as an item
+                  value, so there was no way back to an untethered block once
+                  you had chosen one. NO_TASK is that way back. */}
+              <Select
+                value={selectedTask || NO_TASK}
+                onValueChange={(v) => setSelectedTask(v === NO_TASK ? '' : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a task to focus on..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_TASK}>No task - just focus</SelectItem>
                   {tasks.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.title}

@@ -182,18 +182,19 @@ export default function Resources() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Resources" subtitle={`${links.length} saved ${links.length === 1 ? "link" : "links"}`} />
+      <PageHeader
+        title="Resources"
+        subtitle={`${links.length} saved ${links.length === 1 ? "link" : "links"}`}
+        actions={
+          <Button onClick={() => { openNewLink(); setLinkDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Save Link
+          </Button>
+        }
+      />
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div />
-          <Dialog open={linkDialogOpen} onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setEditingLink(null); }}>
-            <DialogTrigger asChild>
-              <Button onClick={openNewLink}>
-                <Plus className="mr-2 h-4 w-4" />
-                Save Link
-              </Button>
-            </DialogTrigger>
+        <Dialog open={linkDialogOpen} onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setEditingLink(null); }}>
             <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
               <DialogHeader>
                 <DialogTitle>{editingLink ? 'Edit Link' : 'Save a Link'}</DialogTitle>
@@ -283,10 +284,8 @@ export default function Resources() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
 
-        {/* Search Links */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

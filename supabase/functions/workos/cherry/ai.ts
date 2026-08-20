@@ -19,7 +19,18 @@ export type ProviderName = "anthropic" | "gemini" | "builtin";
 
 const DEFAULT_MODELS: Record<string, string> = {
   anthropic: "claude-opus-5",
-  gemini: "gemini-2.5-flash",
+  // Lite, and a floating alias rather than a pinned version.
+  //
+  // Lite because the work is small and well-specified: read a short context,
+  // emit a constrained JSON command or answer a question from counted facts.
+  // The bigger flash model cost more and was measurably less reliable here -
+  // it kept returning "high demand" while lite answered every time.
+  //
+  // Floating because Gemini meters quota per model and retires pinned names:
+  // gemini-2.5-flash was quota-exhausted while the current flash was fine, and
+  // gemini-2.0-flash now 404s outright. Override with CHERRY_AI_MODEL if a
+  // specific version is ever needed.
+  gemini: "gemini-flash-lite-latest",
 };
 
 export interface ResolvedProvider {

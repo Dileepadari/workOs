@@ -188,7 +188,7 @@ export default function Tasks() {
   };
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-4">
+    <div className="animate-fade-in space-y-4">
       <PageHeader title="Tasks" subtitle={`${tasks.filter(t => t.status !== "done" && t.status !== "dropped").length} open of ${tasks.length}`} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

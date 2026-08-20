@@ -168,7 +168,7 @@ export default function Dashboard() {
   if (loading) return <DashboardSkeleton />;
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
+    <div className="animate-fade-in space-y-6">
       <PageHeader
         title="Dashboard"
         subtitle={greetingLine()}

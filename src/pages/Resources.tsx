@@ -182,18 +182,19 @@ export default function Resources() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Resources" />
+      <PageHeader
+        title="Resources"
+        subtitle={`${links.length} saved ${links.length === 1 ? "link" : "links"}`}
+        actions={
+          <Button onClick={() => { openNewLink(); setLinkDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Save Link
+          </Button>
+        }
+      />
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">{links.length} {links.length === 1 ? 'link' : 'links'} saved</p>
-          <Dialog open={linkDialogOpen} onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setEditingLink(null); }}>
-            <DialogTrigger asChild>
-              <Button onClick={openNewLink}>
-                <Plus className="mr-2 h-4 w-4" />
-                Save Link
-              </Button>
-            </DialogTrigger>
+        <Dialog open={linkDialogOpen} onOpenChange={(o) => { setLinkDialogOpen(o); if (!o) setEditingLink(null); }}>
             <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto" {...preventAccidentalDialogClose}>
               <DialogHeader>
                 <DialogTitle>{editingLink ? 'Edit Link' : 'Save a Link'}</DialogTitle>
@@ -223,7 +224,7 @@ export default function Resources() {
                       />
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Paste a link, or upload a file to store and link it.</p>
+                  <p className="text-xs text-muted-foreground">Paste a link, or upload a file to store and link it.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Title</Label>
@@ -283,10 +284,8 @@ export default function Resources() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
 
-        {/* Search Links */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -382,9 +381,9 @@ export default function Resources() {
                   <div className="mt-auto flex items-center justify-between border-t border-border pt-2.5">
                     <div className="flex items-center gap-2">
                       {l.short_key && (
-                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{l.short_key}</code>
+                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{l.short_key}</code>
                       )}
-                      <span className="text-[10px] text-muted-foreground">{l.click_count} opens</span>
+                      <span className="text-xs text-muted-foreground">{l.click_count} opens</span>
                     </div>
                     <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                       <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="View details" onClick={() => setViewingLink(l)}><Eye className="h-3 w-3" /></Button>
@@ -413,7 +412,7 @@ export default function Resources() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className={`text-xs capitalize ${categoryColors[viewingLink.category] || ''}`}>{viewingLink.category}</Badge>
                   {viewingLink.short_key && (
-                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{viewingLink.short_key}</code>
+                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{viewingLink.short_key}</code>
                   )}
                   <span className="text-xs text-muted-foreground">{viewingLink.click_count} opens</span>
                   <span className="text-xs text-muted-foreground">· saved {format(new Date(viewingLink.created_at), 'MMM d, yyyy')}</span>

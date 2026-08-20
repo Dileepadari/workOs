@@ -29,3 +29,10 @@ dist-ssr
 
 # Supabase CLI local state (project ref, pooler URL, etc - machine-specific)
 supabase/.temp
+
+# Any dotfile ending in .env, whatever it is called. A credentials file was
+# committed here once as `.workos-delpoy.env` - a typo of "deploy" - which slid
+# straight past a rule naming the correct spelling. Match the shape, not the
+# name, because the name is the part that gets typed wrong.
+*.env
+!.env.example

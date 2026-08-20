@@ -256,7 +256,7 @@ export function CalendarIntegrationSettings() {
                     ) : (
                       <>
                         <div className="flex items-center gap-2">
-                          <code className="text-[10px] text-muted-foreground break-all">
+                          <code className="text-xs text-muted-foreground break-all">
                             {isVisible ? integration.ics_url : maskUrl(integration.ics_url)}
                           </code>
                           <button

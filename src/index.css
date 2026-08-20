@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -49,6 +49,13 @@
     --sidebar-accent-foreground: 220 14% 20%;
     --sidebar-border: 220 13% 87%;
     --sidebar-ring: 268.7 47.6% 28.4%;
+
+    /* Book surfaces. Deliberately outside the accent-palette system: the shell
+       can be any colour the workspace picks, but a page of a book is always
+       paper. ThemeContext does not touch these. */
+    --paper: 40 38% 96%;
+    --paper-foreground: 30 25% 16%;
+    --paper-edge: 38 26% 86%;
   }
 
   .dark {
@@ -93,6 +100,10 @@
     --sidebar-accent-foreground: 218 14% 92%;
     --sidebar-border: 217 33% 20%;
     --sidebar-ring: 266.4 40.1% 63.3%;
+
+    --paper: 30 12% 13%;
+    --paper-foreground: 36 24% 88%;
+    --paper-edge: 30 12% 22%;
   }
 }
 
@@ -102,7 +113,146 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--app-font, theme('fontFamily.sans'));
   }
+
+  /* Fraunces carries every page title and all book prose. Inter stays the
+     interface face; mixing a serif display with a sans body is what makes a
+     page read as a page rather than as another panel. */
+  .font-display {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-optical-sizing: auto;
+  }
+}
+
+/* Every motion in this app is decorative - none of it carries information that
+   is not also in the DOM - so honouring the OS setting costs nothing. Framer
+   Motion reads this too; this rule covers the CSS animations. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* The wash behind the book and the welcome surfaces. Three soft radial
+     tints rather than a linear gradient, so it reads as light falling on
+     paper instead of a banner. */
+  .book-wash {
+    background-image:
+      radial-gradient(60rem 40rem at 12% 8%, hsl(var(--primary) / 0.14), transparent 60%),
+      radial-gradient(50rem 36rem at 88% 12%, hsl(var(--accent) / 0.12), transparent 62%),
+      radial-gradient(46rem 34rem at 50% 96%, hsl(var(--primary) / 0.10), transparent 60%);
+  }
+
+  /* A page. The left edge carries a gutter shadow so it reads as bound into a
+     spine rather than floating as a card. */
+  .page-surface {
+    background-color: hsl(var(--paper));
+    color: hsl(var(--paper-foreground));
+    border: 1px solid hsl(var(--paper-edge));
+    box-shadow:
+      inset 14px 0 22px -18px hsl(var(--paper-edge)),
+      0 10px 30px -12px hsl(264 40% 10% / 0.16);
+  }
+
+  .page-rule {
+    border-bottom: 1px solid hsl(var(--paper-edge));
+  }
+
+  /* ---- The bound book -------------------------------------------------
+     A real page turn needs three things a crossfade cannot fake: the sheet
+     must pivot on the spine rather than the middle of the screen, it must
+     have two distinct faces, and it must lose light as it lifts. These
+     classes carry the geometry and the light; BookReader drives the angle. */
+
+  /* Paper for a page that lives inside the book, without the drop shadow a
+     free-standing card wants - inside a book the shadow comes from the spine
+     and the sheet above it, not from the page itself. */
+  .book-leaf {
+    background-color: hsl(var(--paper));
+    color: hsl(var(--paper-foreground));
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* The gutter. A page curves into the spine, so the ink there sits in shade;
+     the falloff is steep and short, which is what stops it reading as a
+     vignette. Verso and recto shade from opposite edges. */
+  .book-leaf-recto::after,
+  .book-leaf-verso::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .book-leaf-recto::after {
+    background: linear-gradient(
+      to right,
+      hsl(30 30% 20% / 0.20) 0,
+      hsl(30 30% 20% / 0.07) 1.6%,
+      transparent 7%
+    );
+  }
+  .book-leaf-verso::after {
+    background: linear-gradient(
+      to left,
+      hsl(30 30% 20% / 0.20) 0,
+      hsl(30 30% 20% / 0.07) 1.6%,
+      transparent 7%
+    );
+  }
+
+  /* The stack of sheets you have already read, and the ones still to come.
+     The book visibly gets heavier on the left as you read forward, which is
+     the cheapest honest signal of where you are in it. */
+  .book-edges {
+    position: absolute;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 0;
+    pointer-events: none;
+    border-right: 1px solid hsl(var(--paper-edge));
+    border-left: 1px solid hsl(var(--paper-edge));
+    background: repeating-linear-gradient(
+      to right,
+      hsl(var(--paper)) 0 1px,
+      hsl(var(--paper-edge) / 0.55) 1px 2px
+    );
+  }
+
+  /* The board the book is open on. */
+  .book-board {
+    background:
+      radial-gradient(70% 60% at 50% 0%, hsl(var(--primary) / 0.10), transparent 70%),
+      radial-gradient(60% 60% at 50% 100%, hsl(var(--accent) / 0.08), transparent 70%);
+  }
+
+  /* Content inside a leaf scrolls rather than being cut off. A day with a lot
+     in it is not a reason to hide half of it, and the mask keeps the bottom
+     edge from looking like a hard crop. */
+  .book-leaf-scroll {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--paper-edge)) transparent;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 2.5rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 2.5rem), transparent 100%);
+  }
+  .book-leaf-scroll::-webkit-scrollbar { width: 6px; }
+  .book-leaf-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--paper-edge));
+    border-radius: 3px;
+  }
+
+  .tabular-nums { font-variant-numeric: tabular-nums; }
 }
 
 /* ===========================
@@ -356,4 +506,196 @@
 }
 .dark .logo-mono {
   filter: brightness(0) invert(1);
+}
+
+/* Written content: code, READMEs and pasted logs.
+   ------------------------------------------------
+   The rule these all serve: nothing a user pastes should be able to stretch
+   the card it sits in. A minified line, a long URL or a base64 blob is a
+   horizontal scroll inside its own block, never a page that scrolls sideways. */
+.bn-container .bn-block-content[data-content-type="codeBlock"] pre,
+.bn-container pre {
+  overflow-x: auto;
+  white-space: pre;          /* indentation is meaning in code, so keep it */
+  tab-size: 2;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.6);
+  padding: 0.85rem 1rem;
+}
+
+/* Inline code reads as a token, not as a box. */
+.bn-container code:not(pre code) {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+  background: hsl(var(--muted));
+}
+
+/* Prose blocks break long unbroken strings rather than pushing the card
+   wider - the fix already applied to dialogs, applied everywhere. */
+.bn-container .bn-block-content[data-content-type="paragraph"],
+.bn-container .bn-block-content[data-content-type="heading"],
+.bn-container blockquote {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.bn-container table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Readable measure for prose. Code and tables opt out - they need the width. */
+.prose-measure > .bn-container .bn-block-content[data-content-type="paragraph"] {
+  max-width: 68ch;
+}
+
+/* Cherry, standing in the corner.
+   -------------------------------
+   Ported from the sibling virtual-lab-assistant so the two assistants move the
+   same way. The idle motion is on the torso only: a whole-figure bob reads as
+   a bouncing sticker, a slow chest rise reads as a person standing still. */
+.cherry-stage {
+  transition: opacity .25s cubic-bezier(.16,1,.3,1);
+  animation: cherry-arrive .7s cubic-bezier(.16,1,.3,1) both;
+  -webkit-tap-highlight-color: transparent;
+}
+.cherry-stage:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+.cherry-stage .vl-figure {
+  display: block;
+  /* Small enough on a phone not to sit on top of the content she is there to
+     talk about, full size once there is room. */
+  width: 74px;
+  height: 122px;
+  overflow: visible;
+  filter: drop-shadow(0 14px 22px hsl(264 40% 10% / 0.22));
+}
+@media (min-width: 640px) {
+  .cherry-stage .vl-figure { width: 118px; height: 195px; }
+}
+
+@keyframes cherry-arrive {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cherry-stage .vl-body {
+  transform-box: view-box;
+  transform-origin: 100px 300px;
+  animation: cherry-breathe 4.2s ease-in-out infinite;
+}
+@keyframes cherry-breathe {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50%      { transform: translateY(-1.4px) scaleY(1.007); }
+}
+
+/* Joints. Poses are rotations about these origins, set from JS. */
+.cherry-stage .vl-arm-left  { transform-box: view-box; transform-origin: 78px 112px;  transition: transform .5s cubic-bezier(.16,1,.3,1); }
+.cherry-stage .vl-arm-right { transform-box: view-box; transform-origin: 122px 112px; transition: transform .5s cubic-bezier(.16,1,.3,1); }
+.cherry-stage .vl-head      { transform-box: view-box; transform-origin: 100px 82px;  transition: transform .5s cubic-bezier(.16,1,.3,1); }
+.cherry-stage .vl-brows     { transform-box: view-box; transition: transform .3s cubic-bezier(.16,1,.3,1); }
+.cherry-stage .vl-mouth     { transition: d .3s cubic-bezier(.16,1,.3,1); }
+.cherry-stage .vl-clipboard { transition: opacity .35s cubic-bezier(.16,1,.3,1); }
+
+/* Blink. The two lids are offset by a few milliseconds on purpose -
+   perfectly synchronous blinks look mechanical. */
+.cherry-stage .vl-lid { animation: cherry-blink 5.4s infinite; }
+.cherry-stage .vl-lid:nth-of-type(2) { animation-delay: .04s; }
+@keyframes cherry-blink {
+  0%, 92%, 100% { height: 0; }
+  94%, 96%      { height: 13px; }
+}
+
+/* One beat when there is something new. Deliberately not a loop. */
+@keyframes cherry-nudge {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25%      { transform: translateY(-7px) rotate(-1.6deg); }
+  60%      { transform: translateY(-2px) rotate(.8deg); }
+}
+.cherry-stage.is-alerting .vl-body {
+  animation: cherry-nudge .62s cubic-bezier(.16,1,.3,1), cherry-breathe 4.2s ease-in-out infinite .62s;
+}
+
+/* The tail is what turns a floating card into something she is saying. */
+.cherry-panel-tail::before,
+.cherry-panel-tail::after {
+  content: '';
+  position: absolute;
+  right: -11px;
+  bottom: 54px;
+  width: 0; height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 11px solid hsl(var(--border));
+}
+.cherry-panel-tail::after {
+  right: -9px;
+  border-left-color: hsl(var(--card));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cherry-stage,
+  .cherry-stage .vl-body,
+  .cherry-stage .vl-lid { animation: none !important; }
+}
+
+/* The two figures shown side by side in Settings. Scaled down and cropped to
+   the head and shoulders, since the choice is about who they are, not a
+   full-length portrait. */
+.cherry-stage-preview .vl-figure {
+  width: 92px;
+  height: 152px;
+  overflow: visible;
+  margin-top: -6px;
+}
+
+/* ===========================
+   PRINT
+   ===========================
+   /book/print renders the whole book and hands it to the browser's own PDF
+   export. Chrome is the print engine; this is the binding. */
+@media print {
+  @page {
+    size: A5;
+    margin: 14mm 12mm;
+  }
+
+  /* Anything that only exists to be clicked has no business on paper. */
+  .no-print, aside, nav, button { display: none !important; }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* One page per leaf. `break-after` rather than the deprecated
+     page-break-after, and `avoid` inside so a metric grid is never split
+     across a sheet. */
+  .print-page {
+    break-after: page;
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+  .print-page:last-child { break-after: auto; }
+
+  .page-surface {
+    box-shadow: none !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #000 !important;
+  }
+
+  h1, h2, h3, dl, blockquote { break-inside: avoid; }
 }

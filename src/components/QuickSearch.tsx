@@ -120,7 +120,7 @@ export function QuickSearch({ open, onClose }: Props) {
             className="min-w-0 flex-1 border-0 p-0 h-auto focus-visible:ring-0 text-sm"
             autoFocus
           />
-          <kbd className="hidden sm:inline-block shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">ESC</kbd>
+          <kbd className="hidden sm:inline-block shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">ESC</kbd>
         </div>
         {results.length > 0 && (
           <div className="max-h-80 overflow-y-auto py-2">

@@ -16,25 +16,20 @@ import { PageHeader } from '@/components/PageHeader';
 import { PRIORITY_COLORS, PROJECT_STATUS_COLORS } from '@/lib/taskMeta';
 import { DashboardSkeleton } from '@/components/skeletons/pages';
 
-function DateTime() {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
-  const day = time.toLocaleString('en-US', { weekday: 'long' });
-  const date = time.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const timeStr = time.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
-  return (
-    <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-accent/10 blur-2xl" />
-      <CardContent className="relative p-4 sm:p-6">
-        <div className="text-center sm:text-left">
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary">{day}</p>
-          <p className="text-2xl sm:text-3xl font-bold text-foreground">{date}</p>
-          <p className="text-lg sm:text-xl text-muted-foreground font-mono tabular-nums">{timeStr}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
+/**
+ * The date, as a line of context rather than a hero.
+ *
+ * This used to be a gradient card with a clock ticking once a second - the
+ * largest, loudest element on the page, re-rendering 3,600 times an hour to
+ * tell you something the operating system already puts in the corner of the
+ * screen. The date belongs here, in the subtitle, and the seconds belong
+ * nowhere.
+ */
+function greetingLine(): string {
+  const now = new Date();
+  const h = now.getHours();
+  const greeting = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  return `${greeting} - ${now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`;
 }
 
 interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; due_time: string | null; time_estimate_min: number | null; project_id: string | null; }
@@ -54,7 +49,6 @@ export default function Dashboard() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [quickTask, setQuickTask] = useState('');
   const [stats, setStats] = useState({ projects: 0, links: 0, notes: 0, meetings: 0 });
 
   const fetchData = async () => {
@@ -124,17 +118,6 @@ export default function Dashboard() {
     return <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />;
   };
 
-  const handleQuickTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = quickTask.trim();
-    if (!title || !currentWorkspace) return;
-    // Clear immediately (not after the await) so fast repeated submits can't
-    // land on top of a still-populated field and get concatenated together.
-    setQuickTask('');
-    await api.insert('tasks', currentWorkspace.id, { title, status: 'todo', priority: 'medium' });
-    fetchData();
-  };
-
   const toggleTask = async (taskId: string, currentStatus: string) => {
     if (!currentWorkspace) return;
     const newStatus = currentStatus === 'done' ? 'todo' : 'done';
@@ -159,17 +142,17 @@ export default function Dashboard() {
       </div>
       <div className="flex flex-wrap gap-1.5 items-center ml-6 sm:ml-7">
         {task.project_id && projectMap[task.project_id] && (
-          <Badge variant="outline" className="text-[9px] sm:text-xs">
+          <Badge variant="outline" className="text-xs sm:text-xs">
             <span className="mr-1 h-1.5 w-1.5 rounded-full inline-block" style={{ backgroundColor: projectMap[task.project_id].color }} />
             {projectMap[task.project_id].name.substring(0, 12)}
           </Badge>
         )}
-        <Badge className={`text-[9px] sm:text-xs ${priorityColors[task.priority]}`}>{task.priority}</Badge>
-        {task.time_estimate_min && <span className="text-[9px] sm:text-xs text-muted-foreground">{task.time_estimate_min}m</span>}
-        {task.due_time && <span className="text-[9px] text-muted-foreground">{task.due_time}</span>}
+        <Badge className={`text-xs sm:text-xs ${priorityColors[task.priority]}`}>{task.priority}</Badge>
+        {task.time_estimate_min && <span className="text-xs sm:text-xs text-muted-foreground">{task.time_estimate_min}m</span>}
+        {task.due_time && <span className="text-xs text-muted-foreground">{task.due_time}</span>}
         {showSnooze && (
           <div className="flex gap-1 ml-auto">
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-[9px]" onClick={() => snoozeTask(task.id, addDays(new Date(), 1))}>Tomorrow</Button>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => snoozeTask(task.id, addDays(new Date(), 1))}>Tomorrow</Button>
             <Popover>
               <PopoverTrigger asChild><Button variant="ghost" size="sm" className="h-6 px-1.5"><CalendarClock className="h-3 w-3" /></Button></PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -185,25 +168,25 @@ export default function Dashboard() {
   if (loading) return <DashboardSkeleton />;
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
-      <PageHeader title="Dashboard" />
-      <DateTime />
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        title="Dashboard"
+        subtitle={greetingLine()}
+        actions={
+          <>
+            <Button variant="outline" size="sm" asChild><Link to="/tasks"><CheckSquare className="mr-1 h-3.5 w-3.5" />Tasks</Link></Button>
+            <Button size="sm" asChild><Link to="/projects"><Plus className="mr-1 h-3.5 w-3.5" />Project</Link></Button>
+          </>
+        }
+      />
 
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {todayTasks.length} tasks today · {totalEstimateToday > 0 ? `${Math.floor(totalEstimateToday / 60)}h ${totalEstimateToday % 60}m estimated` : 'no estimates'}
           {overdueTasks.length > 0 && <span className="text-destructive ml-2">· {overdueTasks.length} overdue</span>}
         </p>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" asChild><Link to="/tasks"><CheckSquare className="mr-1 h-3.5 w-3.5" />Tasks</Link></Button>
-          <Button size="sm" asChild><Link to="/projects"><Plus className="mr-1 h-3.5 w-3.5" />Project</Link></Button>
-        </div>
       </div>
 
-      <form onSubmit={handleQuickTask} className="flex gap-2">
-        <Input value={quickTask} onChange={e => setQuickTask(e.target.value)} placeholder="Quick add a task... press Enter" className="flex-1 h-9 text-sm" />
-        <Button type="submit" variant="secondary" size="sm" disabled={!quickTask.trim()}><Plus className="h-4 w-4" /></Button>
-      </form>
 
       {workloadWarning && (
         <Card className="border-warning/30 bg-warning/5">
@@ -216,16 +199,19 @@ export default function Dashboard() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
+        {/* Two of these used to be hardcoded Tailwind blues, which meant the
+            row mixed five unrelated hues and ignored whichever palette the
+            workspace had chosen. Everything here is a token now, so the tiles
+            stay one family in all ten palettes. */}
         {[
           { label: 'Projects', value: stats.projects, icon: FolderKanban, to: '/projects', color: 'text-primary', bg: 'bg-primary/10' },
-          { label: 'Open Tasks', value: activeTasks.length, icon: CheckSquare, to: '/tasks', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: 'Links', value: stats.links, icon: Link2, to: '/resources', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+          { label: 'Open Tasks', value: activeTasks.length, icon: CheckSquare, to: '/tasks', color: 'text-foreground', bg: 'bg-muted' },
+          { label: 'Links', value: stats.links, icon: Link2, to: '/resources', color: 'text-muted-foreground', bg: 'bg-muted' },
           { label: 'Notes', value: stats.notes, icon: FileText, to: '/notes', color: 'text-accent', bg: 'bg-accent/10' },
           { label: 'Events', value: upcomingEvents.length, icon: Calendar, to: '/calendar', color: 'text-success', bg: 'bg-success/10' },
         ].map(({ label, value, icon: Icon, to, color, bg }, index) => (
           <Link key={label} to={to} className="animate-scale-in" style={{ animationDelay: `${Math.min(index * 40, 480)}ms` }}>
             <Card className="group relative overflow-hidden transition-all hover-lift">
-              <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${bg} opacity-50 transition-transform duration-300 group-hover:scale-125`} />
               <CardContent className="relative flex flex-col gap-3 p-4 sm:p-5">
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${bg}`}>
                   <Icon className={`h-4.5 w-4.5 ${color}`} />
@@ -256,7 +242,7 @@ export default function Dashboard() {
                   <CardContent className="p-4 sm:p-6">
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
-                      <Badge className={`shrink-0 text-[10px] capitalize ${projectStatusColors[p.status] || 'bg-muted text-muted-foreground'}`}>{p.status.replace('_', ' ')}</Badge>
+                      <Badge className={`shrink-0 text-xs capitalize ${projectStatusColors[p.status] || 'bg-muted text-muted-foreground'}`}>{p.status.replace('_', ' ')}</Badge>
                     </div>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="h-1.5 flex-1 rounded-full bg-muted"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: p.color }} /></div>
@@ -317,7 +303,7 @@ export default function Dashboard() {
                     <span className="text-muted-foreground w-14 shrink-0">{isToday(ev.date) ? 'Today' : format(ev.date, 'MMM d')}</span>
                     <span className="text-foreground flex-1 truncate">{ev.title}</span>
                     {ev.type === 'meeting' && <span className="text-muted-foreground">{format(ev.date, 'h:mm a')}</span>}
-                    <Badge variant="outline" className="text-[10px] capitalize">{ev.type}</Badge>
+                    <Badge variant="outline" className="text-xs capitalize">{ev.type}</Badge>
                   </div>
                 ))}
               </div>
@@ -385,7 +371,7 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground shrink-0">{format(new Date(t.due_date!), 'MMM d')}</span>
                 </div>
                 <div className="flex gap-1">
-                  <Badge className={`text-[9px] ${priorityColors[t.priority]}`}>{t.priority}</Badge>
+                  <Badge className={`text-xs ${priorityColors[t.priority]}`}>{t.priority}</Badge>
                 </div>
               </div>
             ))}

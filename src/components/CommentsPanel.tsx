@@ -118,7 +118,7 @@ export function CommentsPanel({ workspaceId, entityType, entityId, projectId, cu
             compact
             onChange={(rows) => setDraftFileCount(rows.length)}
           />
-          <p className="text-[10px] text-muted-foreground">Type @username to mention a teammate</p>
+          <p className="text-xs text-muted-foreground">Type @username to mention a teammate</p>
         </div>
         <Button
           onClick={handlePost}
@@ -141,8 +141,8 @@ export function CommentsPanel({ workspaceId, entityType, entityId, projectId, cu
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {c.is_pinned && <Pin className="h-3.5 w-3.5 text-primary" />}
                 <span className="text-xs font-medium text-foreground">{authorLabel}</span>
-                <span className="text-[10px] text-muted-foreground">{format(new Date(c.created_at), 'MMM d, h:mm a')}</span>
-                {c.updated_at !== c.created_at && <span className="text-[10px] text-muted-foreground italic">(edited)</span>}
+                <span className="text-xs text-muted-foreground">{format(new Date(c.created_at), 'MMM d, h:mm a')}</span>
+                {c.updated_at !== c.created_at && <span className="text-xs text-muted-foreground italic">(edited)</span>}
                 <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="ghost" size="sm" className="h-6 px-1.5" onClick={() => togglePin(c)}><Pin className="h-3 w-3" /></Button>
                   {c.created_by === currentUserId && (

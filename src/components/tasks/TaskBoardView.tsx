@@ -32,7 +32,7 @@ function Column({ status, children, count }: { status: TaskStatus; children: Rea
     <div ref={setNodeRef} className={`flex min-w-[260px] flex-1 flex-col rounded-md border p-2 transition-colors ${isOver ? 'border-primary bg-primary/5' : 'border-border bg-muted/20'}`}>
       <div className="mb-2 flex items-center justify-between px-1">
         <h3 className="text-xs font-medium uppercase text-muted-foreground">{TASK_STATUS_LABELS[status]}</h3>
-        <Badge variant="secondary" className="text-[10px]">{count}</Badge>
+        <Badge variant="secondary" className="text-xs">{count}</Badge>
       </div>
       <div className="flex-1 space-y-1.5 min-h-[60px]">{children}</div>
     </div>

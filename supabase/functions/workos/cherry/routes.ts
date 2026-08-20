@@ -91,7 +91,7 @@ export async function handleCherryParse(req: Request, user: AuthedUser, deps: Ch
     .map((t: CherryTurn) => ({ role: t.role === "cherry" ? "cherry" : "user", text: String(t.text).slice(0, 1200) }));
 
   const scopeProjectId = body?.scope?.project_id ? String(body.scope.project_id) : null;
-  const ctx = await buildContext(deps.db, workspaceId, message, scopeProjectId);
+  const ctx = await buildContext(deps.db, workspaceId, message, scopeProjectId, body?.today);
 
   const prompt = buildUserPrompt({
     message,

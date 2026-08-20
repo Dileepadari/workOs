@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addDays, format, parseISO, subDays } from 'date-fns';
-import { BookOpen, Loader2, Printer, Sparkles } from 'lucide-react';
+import { BookOpen, CalendarDays, Loader2, Printer, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/sonner';
@@ -41,6 +41,7 @@ export default function Book() {
 
   const [index, setIndex] = useState(0);
   const [generating, setGenerating] = useState(false);
+  const [pickedDate, setPickedDate] = useState(() => isoDate(new Date()));
 
   const sourced = useMemo(() => ({
     tasks, projects, sessions,
@@ -73,7 +74,7 @@ export default function Book() {
     return out;
   }, [dayPages, weekPages]);
 
-  const generate = async (target: Date) => {
+  const generate = async (target: Date, { force = false }: { force?: boolean } = {}) => {
     setGenerating(true);
     try {
       const date = isoDate(target);
@@ -81,8 +82,13 @@ export default function Book() {
       const written = writeDayPage(snap);
       const existing = dayPages.find((p) => p.date === date);
 
-      if (existing?.sealed_at) {
-        toast.info('That page is sealed', { description: 'Sealed pages are part of the book and are not rewritten.' });
+      // A sealed page is part of the printed book, so it is never rewritten by
+      // accident - but "regenerate this day" is not an accident, so the same
+      // call takes an explicit override.
+      if (existing?.sealed_at && !force) {
+        toast.info('That page is sealed', {
+          description: 'Use Regenerate on the page itself if you really want to rewrite it.',
+        });
         return;
       }
       const payload = { ...written, date, metrics: snap.metrics, generated_by: 'builtin' };
@@ -133,7 +139,28 @@ export default function Book() {
               : 'One page a day, written from what you actually did.'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Any day, not just today or yesterday. Backfilling a week you
+              forgot to close is the common case, and a page can be rewritten
+              whenever the underlying work changes. */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-1">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <input
+              type="date"
+              value={pickedDate}
+              max={isoDate(new Date())}
+              onChange={(e) => setPickedDate(e.target.value)}
+              className="bg-transparent text-sm outline-none"
+              aria-label="Choose a day to write"
+            />
+            <Button
+              size="sm" variant="ghost" className="h-7"
+              disabled={generating || !pickedDate}
+              onClick={() => generate(parseISO(pickedDate), { force: true })}
+            >
+              Write
+            </Button>
+          </div>
           <Button variant="outline" onClick={() => generate(subDays(new Date(), 1))} disabled={generating} className="gap-2">
             Yesterday
           </Button>
@@ -165,7 +192,30 @@ export default function Book() {
           </CardContent>
         </Card>
       ) : (
-        <BookReader pages={leaves} index={index} onIndexChange={setIndex} />
+        <>
+          <BookReader pages={leaves} index={index} onIndexChange={setIndex} />
+          {(() => {
+            const leaf = leaves[Math.min(index, leaves.length - 1)];
+            if (!leaf || leaf.kind !== 'day') return null;
+            return (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Button
+                  variant="ghost" size="sm" className="gap-2"
+                  disabled={generating}
+                  onClick={() => generate(parseISO(leaf.date), { force: true })}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Regenerate this page
+                </Button>
+                {leaf.sealed_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Sealed - regenerating rewrites it
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+        </>
       )}
     </div>
   );

@@ -470,6 +470,9 @@ export const cherry = {
     resolutions?: Record<string, string>;
     skips?: string[];
     scope?: { project_id?: string | null };
+    /** The caller's local calendar day, so Cherry and the book agree on what
+     *  "today" means regardless of the server's timezone. */
+    today?: string;
   }): Promise<{ proposal: CherryProposal; provider: string; degraded_from: string | null; provider_error: string | null }> =>
     call('/cherry/parse', {
       method: 'POST',

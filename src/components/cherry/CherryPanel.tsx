@@ -21,6 +21,14 @@ import { useInvalidate } from '@/hooks/useWorkData';
 import { cn } from '@/lib/utils';
 import { speechSupported } from '@/hooks/useCherryPrefs';
 
+/** The browser's own calendar day, formatted the way the server expects.
+ *  toISOString() would hand back a UTC date, which is the bug this avoids. */
+function localToday(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 interface Turn {
   id: string;
   role: 'user' | 'cherry';
@@ -95,6 +103,7 @@ export function CherryPanel({ open, onClose }: { open: boolean; onClose: () => v
         history: history(),
         pending_proposal: pending,
         scope: { project_id: scopeProjectId },
+        today: localToday(),
       });
       const id = crypto.randomUUID();
       setTurns((t) => [...t, {

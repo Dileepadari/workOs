@@ -74,6 +74,20 @@ export default function FocusMode() {
   const logSession = useCreate<FocusSessionRow>('focus_sessions');
   const startedAtRef = useRef<string | null>(null);
   const [interruptions, setInterruptions] = useState(0);
+  /**
+   * Whether the block currently on screen has already been written.
+   *
+   * The completion effect below depends on a callback that depends on the
+   * mutation object, and `useMutation` hands back a fresh object every render -
+   * so the effect re-ran constantly, and while `timeLeft` was 0 and the
+   * `setIsRunning(false)` from the first run had not yet committed, it fired a
+   * second time. Every finished session was written twice, which doubled both
+   * the count and the minutes. A ref settles it before the next render can.
+   */
+  const loggedRef = useRef(false);
+  // Held in a ref so its changing identity cannot re-trigger the effect.
+  const logSessionRef = useRef(logSession);
+  logSessionRef.current = logSession;
   const [completeTaskConfirm, setCompleteTaskConfirm] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -101,11 +115,13 @@ export default function FocusMode() {
 
   const handleTimerComplete = useCallback(() => {
     if (!isBreak) {
+      if (loggedRef.current) return;
+      loggedRef.current = true;
       // Record the block before resetting anything - a finished session is a
       // fact, and losing it because the tab closed a second later is the bug
       // this replaced.
       const startedAt = startedAtRef.current ?? new Date(Date.now() - focusDuration * 60_000).toISOString();
-      logSession.mutate({
+      logSessionRef.current.mutate({
         started_at: startedAt,
         ended_at: new Date().toISOString(),
         planned_minutes: focusDuration,
@@ -129,7 +145,7 @@ export default function FocusMode() {
       setTimeLeft(focusDuration * 60);
     }
     setIsRunning(false);
-  }, [isBreak, breakDuration, focusDuration, soundEnabled, interruptions, selectedTask, tasks, logSession]);
+  }, [isBreak, breakDuration, focusDuration, soundEnabled, interruptions, selectedTask, tasks]);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -141,10 +157,18 @@ export default function FocusMode() {
   }, [isRunning, timeLeft, handleTimerComplete]);
 
   const toggleTimer = () => {
-    if (!isRunning && !isBreak && !startedAtRef.current) startedAtRef.current = new Date().toISOString();
+    if (!isRunning && !isBreak && !startedAtRef.current) {
+      startedAtRef.current = new Date().toISOString();
+      loggedRef.current = false;
+    }
     setIsRunning(!isRunning);
   };
-  const resetTimer = () => { setIsRunning(false); setTimeLeft(isBreak ? breakDuration * 60 : focusDuration * 60); };
+  const resetTimer = () => {
+    setIsRunning(false);
+    setTimeLeft(isBreak ? breakDuration * 60 : focusDuration * 60);
+    startedAtRef.current = null;
+    loggedRef.current = false;
+  };
 
   const applySettings = () => {
     if (!isRunning) {

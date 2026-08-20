@@ -246,8 +246,12 @@ export function parseCommandLexically(message: string, ctx: CherryContext): Cher
     return {
       understanding: "",
       intent_kind: "unclear",
+      // Deliberately does not claim there is no key: this parser also runs
+      // when a provider is rate-limited or down, and telling someone their
+      // key is missing when it is merely throttled sends them to fix the
+      // wrong thing. The panel shows what actually degraded.
       reply: unparsed
-        ? "I'm running without an AI key, so I only follow fairly direct instructions. Try something like \"add a task to fix the header for Website, due Friday\" or \"mark the auth work done\"."
+        ? "I am on my built-in parser at the moment, so I only follow fairly direct instructions and cannot answer questions about your work. Try something like \"add a task to fix the header for Website, due Friday\" or \"mark the auth work done\"."
         : "I didn't catch a change in that. Tell me what to add, change or remove.",
       commands: [],
     };

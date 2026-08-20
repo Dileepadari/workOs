@@ -31,6 +31,7 @@ interface Turn {
   undone?: boolean;
   provider?: string;
   degradedFrom?: string | null;
+  providerError?: string | null;
 }
 
 /**
@@ -102,6 +103,7 @@ export function CherryPanel({ open, onClose }: { open: boolean; onClose: () => v
         proposal: res.proposal,
         provider: res.provider,
         degradedFrom: res.degraded_from,
+        providerError: res.provider_error,
       }]);
       setConfirmed((c) => ({ ...c, [id]: defaultConfirmedIds(res.proposal) }));
     } catch (err) {
@@ -394,10 +396,21 @@ function CherryTurnCard({
       )}
       {p.reply && <p className="mt-2 text-sm text-muted-foreground">{p.reply}</p>}
 
+      {/* Degradation has to say what actually broke. Silently becoming a much
+          simpler parser looks like Cherry got worse for no reason, and the
+          built-in reply cannot explain itself because it does not know why it
+          was called. */}
       {turn.degradedFrom && (
-        <p className="mt-2 rounded-md bg-warning/10 px-2 py-1 text-[0.7rem] text-muted-foreground">
-          {turn.degradedFrom} was unavailable, so I used the built-in parser.
-        </p>
+        <div className="mt-2 rounded-md bg-warning/10 px-2.5 py-1.5 text-[0.7rem] text-muted-foreground">
+          <p>
+            <span className="font-medium capitalize text-warning">{turn.degradedFrom}</span>{' '}
+            could not answer, so this came from the built-in parser, which follows
+            direct instructions but cannot answer questions.
+          </p>
+          {turn.providerError && (
+            <p className="mt-1 opacity-80">{turn.providerError.slice(0, 180)}</p>
+          )}
+        </div>
       )}
 
       {/* Anything that must be settled first, before the actions can run. */}

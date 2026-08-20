@@ -132,6 +132,13 @@ export function writeDayPage(s: DaySnapshot) {
   const friction: string[] = [];
 
   if (m.tasks_completed) highlights.push(`Closed ${m.tasks_completed} ${m.tasks_completed === 1 ? 'task' : 'tasks'}: ${list(s.completedTitles)}.`);
+  // Deciding what the work is *is* the work on a planning day. This used to be
+  // a bare count in the metric strip, so a day spent scoping five things read
+  // as an empty page with the number 5 on it - the titles were computed and
+  // then thrown away.
+  if (m.tasks_created) {
+    highlights.push(`Put ${m.tasks_created} ${m.tasks_created === 1 ? 'task' : 'tasks'} on the board: ${list(s.createdTitles, 4)}.`);
+  }
   if (m.focus_minutes) highlights.push(`${duration(m.focus_minutes)} of focused work across ${m.focus_sessions} ${m.focus_sessions === 1 ? 'block' : 'blocks'}.`);
   if (m.milestones_hit) highlights.push(`Hit ${m.milestones_hit} ${m.milestones_hit === 1 ? 'milestone' : 'milestones'}.`);
   if (m.meetings) highlights.push(`${m.meetings} ${m.meetings === 1 ? 'meeting' : 'meetings'}.`);
@@ -142,7 +149,9 @@ export function writeDayPage(s: DaySnapshot) {
     friction.push(`${m.interruptions} interruptions across ${m.focus_sessions} blocks - the blocks were not really uninterrupted.`);
   }
   if (s.overdue) friction.push(`${s.overdue} ${s.overdue === 1 ? 'task is' : 'tasks are'} past their due date.`);
-  if (m.tasks_created > m.tasks_completed + 2) {
+  // Only worth saying when something was also being finished. On a pure
+  // planning day "the board grew" is the point, not a problem.
+  if (m.tasks_created > m.tasks_completed + 2 && m.tasks_completed > 0) {
     friction.push(`You added ${m.tasks_created} and closed ${m.tasks_completed}. The board grew today.`);
   }
   if (m.focus_sessions === 0 && m.tasks_completed > 0) {
@@ -152,14 +161,17 @@ export function writeDayPage(s: DaySnapshot) {
   const title = nothing
     ? 'A quiet one'
     : m.tasks_completed >= 3 || m.focus_minutes >= 180 ? 'A solid day'
-    : m.tasks_completed ? 'Steady' : 'In motion';
+    : m.tasks_completed ? 'Steady'
+    : m.tasks_created ? 'Planning' : 'In motion';
 
   const summary = nothing
     ? 'Nothing was logged on this day. That is either a day off, or a day the tools did not see - both are worth knowing.'
     : [
         m.focus_minutes ? `${duration(m.focus_minutes)} of focused work` : null,
         m.tasks_completed ? `${m.tasks_completed} ${m.tasks_completed === 1 ? 'task' : 'tasks'} closed` : null,
+        m.tasks_created ? `${m.tasks_created} ${m.tasks_created === 1 ? 'task' : 'tasks'} added` : null,
         m.meetings ? `${m.meetings} ${m.meetings === 1 ? 'meeting' : 'meetings'}` : null,
+        m.notes_written ? `${m.notes_written} ${m.notes_written === 1 ? 'note' : 'notes'} written` : null,
         s.projectNames.length ? `work on ${list(s.projectNames, 2)}` : null,
       ].filter(Boolean).join(', ').replace(/,([^,]*)$/, ' and$1') + '.';
 

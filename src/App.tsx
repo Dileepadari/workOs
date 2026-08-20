@@ -19,12 +19,12 @@ import Tasks from "./pages/Tasks";
 import Notes from "./pages/Notes";
 import Resources from "./pages/Resources";
 import Secrets from "./pages/Secrets";
-import DailyLog from "./pages/DailyLog";
+import Book from "./pages/Book";
+import BookPrint from "./pages/BookPrint";
 import SettingsPage from "./pages/SettingsPage";
 import TeamPage from "./pages/TeamPage";
 import CalendarPage from "./pages/CalendarPage";
 import FocusMode from "./pages/FocusMode";
-import WeeklyReview from "./pages/WeeklyReview";
 import TagManager from "./pages/TagManager";
 import NotFound from "./pages/NotFound";
 
@@ -63,6 +63,7 @@ function AppRoutes() {
       <SearchShortcut />
       <SearchDialog />
       <Routes>
+        <Route path="/book/print" element={<ProtectedRoute><BookPrint /></ProtectedRoute>} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -73,10 +74,9 @@ function AppRoutes() {
           <Route path="notes" element={<Notes />} />
           <Route path="resources" element={<Resources />} />
           <Route path="secrets" element={<Secrets />} />
-          <Route path="log" element={<DailyLog />} />
+            <Route path="book" element={<Book />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="focus" element={<FocusMode />} />
-          <Route path="review" element={<WeeklyReview />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/tags" element={<TagManager />} />
@@ -91,10 +91,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <AuthProvider>
         <WorkspaceProvider>
           <ThemeProvider>
+            {/* Sonner reads the app's theme, so it has to sit inside the
+                provider that owns it. It used to render above the tree and
+                pull from next-themes, which had no provider at all - which is
+                why toasts always came out in system theme. */}
+            <Sonner />
             <BrowserRouter>
               <SearchProvider>
                 <AppRoutes />

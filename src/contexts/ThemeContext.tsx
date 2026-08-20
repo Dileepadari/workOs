@@ -1,10 +1,15 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { workspaces as workspacesApi } from '@/lib/api';
+import { workspaces as workspacesApi, preferences as preferencesApi } from '@/lib/api';
 import { useWorkspace } from './WorkspaceContext';
+import { useAuth } from './AuthContext';
 
 // Single source of truth for all theming - merges what used to be two
 // separate, unsynchronized providers (ThemeContext + ColorThemeContext).
-// Light/dark mode + font are personal (localStorage). Color palette / custom
+// Light/dark mode + font are personal and live in `user_preferences`, so they
+// follow the person rather than the machine. localStorage still holds a copy,
+// but only as a paint cache: it is read once on mount to avoid a flash of the
+// wrong theme while the preferences request is in flight, and is never the
+// source of truth. Color palette / custom
 // brand color are a workspace-wide identity, persisted server-side via
 // workspace_settings so every member of the team sees the same branding -
 // not per-browser localStorage.
@@ -218,6 +223,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return (stored === 'light' || stored === 'dark') ? stored : 'dark';
   });
   const [font, setFontState] = useState<Font>(() => (localStorage.getItem('workos-font') as Font) || 'sans');
+  const { user } = useAuth();
+  // False until the server's copy has been applied, so hydration is not
+  // mistaken for a user edit and written straight back.
+  const [hydrated, setHydrated] = useState(false);
 
   // Cached immediately from localStorage for instant paint (pre-login, or
   // before the workspace_settings fetch resolves); source of truth once a
@@ -249,22 +258,63 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     const isDark = root.classList.contains('dark');
     const p = (key: string, darkKey: string) => (isDark ? colors[darkKey] : colors[key]);
+    // Moves an "H S% L%" triplet up or down in lightness, clamped. Used to
+    // derive distinct surface levels from a palette that only defines one.
+    /**
+     * Black or white, whichever can actually be read on this colour.
+     *
+     * Foregrounds used to be hardcoded per theme - white on accent in light
+     * mode, near-black in dark. That works only if the accent happens to be
+     * dark. With a bright accent (this workspace's is a yellow-green at 53%
+     * lightness) white-on-accent came out at 1.55:1, so the label on every
+     * hovered ghost and outline button simply vanished. Ten built-in palettes
+     * plus a custom colour picker means the right answer has to be computed,
+     * not assumed.
+     */
+    const readableOn = (hsl: string): string => {
+      const m = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
+      if (!m) return '0 0% 100%';
+      const [h, sPct, lPct] = [parseFloat(m[1]) / 360, parseFloat(m[2]) / 100, parseFloat(m[3]) / 100];
+      const ch = (n: number) => {
+        const k = (n + h * 12) % 12;
+        const a = sPct * Math.min(lPct, 1 - lPct);
+        return lPct - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+      };
+      const lin = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+      const luminance = 0.2126 * lin(ch(0)) + 0.7152 * lin(ch(8)) + 0.0722 * lin(ch(4));
+      // Contrast against white vs against near-black; pick the better one.
+      return (1.05 / (luminance + 0.05)) >= ((luminance + 0.05) / 0.05) ? '0 0% 100%' : '0 0% 8%';
+    };
+
+    const shiftL = (hsl: string, delta: number) => {
+      const m = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
+      if (!m) return hsl;
+      const l = Math.max(0, Math.min(100, parseFloat(m[3]) + delta));
+      return `${m[1]} ${m[2]}% ${l.toFixed(1)}%`;
+    };
 
     root.style.setProperty('--primary', p('primary', 'darkPrimary'));
-    root.style.setProperty('--primary-foreground', '0 0% 100%');
+    root.style.setProperty('--primary-foreground', readableOn(p('primary', 'darkPrimary')));
     root.style.setProperty('--primary-light', p('primaryLight', 'darkPrimaryLight'));
     root.style.setProperty('--accent', p('accent', 'darkAccent'));
-    root.style.setProperty('--accent-foreground', isDark ? '0 0% 10%' : '0 0% 100%');
+    root.style.setProperty('--accent-foreground', readableOn(p('accent', 'darkAccent')));
     root.style.setProperty('--accent-light', p('accentLight', 'darkAccentLight'));
     root.style.setProperty('--background', p('background', 'darkBackground'));
     root.style.setProperty('--foreground', p('text', 'darkText'));
+    // Card, secondary and muted used to be set to the *same* surface value,
+    // which collapsed three distinct levels into one. Everything then had
+    // identical weight - a dozen cards on a page with nothing separating a
+    // container from its content - which reads as clutter even when the
+    // information is fine. They are now nudged apart from the palette's own
+    // surface: cards sit slightly proud of the background, muted sits behind
+    // it, and secondary sits between them.
     root.style.setProperty('--card', p('surface', 'darkSurface'));
     root.style.setProperty('--card-foreground', p('text', 'darkText'));
     root.style.setProperty('--popover', p('surface', 'darkSurface'));
     root.style.setProperty('--popover-foreground', p('text', 'darkText'));
-    root.style.setProperty('--secondary', p('surface', 'darkSurface'));
+    root.style.setProperty('--secondary', shiftL(p('surface', 'darkSurface'), isDark ? 4 : -3));
     root.style.setProperty('--secondary-foreground', p('text', 'darkText'));
-    root.style.setProperty('--muted', p('surface', 'darkSurface'));
+    root.style.setProperty('--muted', shiftL(p('surface', 'darkSurface'), isDark ? 7 : -5));
     root.style.setProperty('--muted-foreground', p('textMuted', 'darkTextMuted'));
     root.style.setProperty('--border', p('border', 'darkBorder'));
     // Was wrongly bound to the card/surface color, which is near-white in
@@ -273,7 +323,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--input', p('border', 'darkBorder'));
     root.style.setProperty('--ring', p('primary', 'darkPrimary'));
     root.style.setProperty('--destructive', colors.destructive);
-    root.style.setProperty('--destructive-foreground', '0 0% 100%');
+    root.style.setProperty('--destructive-foreground', readableOn(colors.destructive));
     root.style.setProperty('--destructive-light', colors.destructiveLight);
     root.style.setProperty('--success', colors.success);
     root.style.setProperty('--success-light', colors.successLight);
@@ -284,7 +334,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--sidebar-background', p('background', 'darkBackground'));
     root.style.setProperty('--sidebar-foreground', p('text', 'darkText'));
     root.style.setProperty('--sidebar-primary', p('primary', 'darkPrimary'));
-    root.style.setProperty('--sidebar-primary-foreground', '0 0% 100%');
+    root.style.setProperty('--sidebar-primary-foreground', readableOn(p('primary', 'darkPrimary')));
     root.style.setProperty('--sidebar-accent', p('surface', 'darkSurface'));
     root.style.setProperty('--sidebar-accent-foreground', p('text', 'darkText'));
     root.style.setProperty('--sidebar-border', p('border', 'darkBorder'));
@@ -298,12 +348,48 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
-    root.style.fontFamily = fontFamilies[font];
+    // Set as a variable the body rule can pick up, rather than as an inline
+    // fontFamily on <html> - that fought `body { @apply font-sans }` and
+    // whichever won depended on cascade order.
+    root.style.setProperty('--app-font', fontFamilies[font]);
+    // Paint cache only - the authoritative copy is written to the server by
+    // the effect below.
     localStorage.setItem('workos-theme', theme);
     localStorage.setItem('workos-font', font);
     applyColors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, font, colorPalette, customPrimaryHex, customAccentHex]);
+
+  /**
+   * The server is the source of truth for mode and font.
+   *
+   * Hydrated once after sign-in, which overrides whatever this browser had
+   * cached - that is the point: your theme should follow you to a new machine
+   * rather than resetting to whatever that machine last saw. `hydrated` guards
+   * the write-back so the first server value is not immediately echoed back as
+   * though the user had just changed it.
+   */
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    preferencesApi.get()
+      .then(({ preferences: p }) => {
+        if (cancelled) return;
+        if (p.theme === 'light' || p.theme === 'dark') setTheme(p.theme);
+        if (p.font) setFontState(p.font as Font);
+        setHydrated(true);
+      })
+      .catch(() => setHydrated(true));
+    return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !hydrated) return;
+    preferencesApi.update({ theme, font }).catch(() => {
+      // A failed preference write is not worth interrupting anyone over; the
+      // paint cache keeps this browser correct until the next successful save.
+    });
+  }, [theme, font, user, hydrated]);
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   const setFont = (newFont: Font) => setFontState(newFont);

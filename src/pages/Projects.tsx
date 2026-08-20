@@ -137,15 +137,18 @@ export default function Projects() {
   });
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
-      <PageHeader title="Projects" />
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        title="Projects"
+        subtitle={`${projects.length} ${projects.length === 1 ? "project" : "projects"} in this workspace`}
+        actions={
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />New Project
+          </Button>
+        }
+      />
 
-      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{projects.length} {projects.length === 1 ? 'project' : 'projects'}</p>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Project</Button>
-          </DialogTrigger>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto sm:max-w-lg" {...preventAccidentalDialogClose}>
             <DialogHeader>
               <DialogTitle>{editingProject ? 'Edit Project' : 'New Project'}</DialogTitle>
@@ -212,10 +215,8 @@ export default function Projects() {
               <Button type="submit" className="w-full">{editingProject ? 'Save Changes' : 'Create Project'}</Button>
             </form>
           </DialogContent>
-        </Dialog>
-      </div>
+      </Dialog>
 
-      {/* Filter Bar */}
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-end">
           <div className="relative flex-1">

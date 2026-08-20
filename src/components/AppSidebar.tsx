@@ -36,9 +36,8 @@ const navGroups = [
   {
     label: 'Personal',
     items: [
-      { to: '/log', icon: BookOpen, label: 'Daily Log' },
+      { to: '/book', icon: BookOpen, label: 'Your Book' },
       { to: '/focus', icon: Crosshair, label: 'Focus Mode' },
-      { to: '/review', icon: BarChart3, label: 'Weekly Review' },
     ],
   },
   {
@@ -137,7 +136,7 @@ export function AppSidebar({ onClose }: Props) {
         {navGroups.map((group, gi) => (
           <div key={group.label ?? gi} className="space-y-0.5">
             {group.label && (
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">{group.label}</p>
+              <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40">{group.label}</p>
             )}
             {group.items.map(({ to, icon: Icon, label }) => {
               const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);

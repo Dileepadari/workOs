@@ -44,7 +44,7 @@ export default function AcceptInvite() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 p-2.5">
             <img src={logoMark} alt="" className="h-full w-full object-contain logo-mono" />
           </div>
-          <CardTitle>Join workspace</CardTitle>
+          <CardTitle className="font-display text-2xl">Join workspace</CardTitle>
           <CardDescription>
             {user
               ? 'Accept this invite with your current account.'

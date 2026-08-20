@@ -24,7 +24,7 @@ export function AssigneePicker({ members, value, onChange, className }: Props) {
         {members.map((m) => (
           <SelectItem key={m.users.id} value={m.users.id}>
             <span className="flex items-center gap-2">
-              <Avatar className="h-4 w-4"><AvatarFallback className="text-[9px]">{memberLabel(m)[0]?.toUpperCase()}</AvatarFallback></Avatar>
+              <Avatar className="h-4 w-4"><AvatarFallback className="text-xs">{memberLabel(m)[0]?.toUpperCase()}</AvatarFallback></Avatar>
               {memberLabel(m)}
             </span>
           </SelectItem>

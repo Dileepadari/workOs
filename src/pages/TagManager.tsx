@@ -108,9 +108,8 @@ export default function TagManager() {
 
   return (
     <div className="animate-fade-in space-y-6 max-w-[800px]">
-      <PageHeader title="Tag Manager" />
+      <PageHeader title="Tag Manager" subtitle={`${tags.length} tags across all your content`} />
 
-      <p className="text-sm text-muted-foreground">{tags.length} tags across all content</p>
 
       {tags.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No tags found</CardContent></Card>
@@ -123,7 +122,7 @@ export default function TagManager() {
                 <div className="flex-1">
                   <span className="text-sm font-medium text-foreground">{tag.name}</span>
                   <div className="flex gap-1 mt-1">
-                    {tag.tables.map(t => <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>)}
+                    {tag.tables.map(t => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
                   </div>
                 </div>
                 <Badge variant="secondary" className="text-xs">{tag.count} uses</Badge>

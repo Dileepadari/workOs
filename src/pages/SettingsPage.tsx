@@ -14,6 +14,7 @@ import { Download, Tag, Sun, Moon, Shield, Database, Building2, Users } from 'lu
 import { PageHeader } from '@/components/PageHeader';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
 import { CalendarIntegrationSettings } from '@/components/CalendarIntegrationSettings';
+import { CherrySettings } from '@/components/cherry/CherrySettings';
 
 /** Only the columns the links CSV export writes. */
 interface ExportedLink {
@@ -64,10 +65,12 @@ export default function SettingsPage() {
     if (!wsId) return;
     setExporting(true);
     try {
-      // 'bookmarks' dropped from this list - that table was removed in the
-      // multi-tenant rebuild (dead, zero rows); Resources.tsx's links table
-      // is the only "save a URL" store left.
-      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'discussions', 'meetings', 'links', 'notes', 'daily_log'] : ['projects'];
+      // Every name here must be a live entry in the gateway's CONTENT_TABLES
+      // allowlist, or the select 400s and takes the whole export down with it.
+      // Two have been removed for exactly that reason: 'bookmarks', dropped in
+      // the multi-tenant rebuild, and 'discussions', migrated into 'comments'
+      // in stage 5 - which had been silently breaking "Export all" outright.
+      const tables = type === 'links' ? ['links'] : type === 'all' ? ['projects', 'tasks', 'milestones', 'resources', 'meetings', 'links', 'notes', 'events', 'saved_views', 'day_pages', 'week_pages', 'focus_sessions'] : ['projects'];
       const allData: Record<string, unknown[]> = {};
       for (const table of tables) {
         allData[table] = await api.select(table, wsId);
@@ -121,9 +124,17 @@ export default function SettingsPage() {
                 <p className="text-xs sm:text-sm text-muted-foreground">Username</p>
                 <p className="text-xs sm:text-sm text-foreground">{user?.username}</p>
               </div>
+              {/* The raw uuid told nobody anything and took the most readable
+                  line in the card to do it. What people actually want here is
+                  which workspace they are signed in to. */}
               <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">User ID</p>
-                <p className="font-mono text-[10px] sm:text-xs text-muted-foreground break-all">{user?.id}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Workspace</p>
+                <p className="text-xs sm:text-sm text-foreground">
+                  {currentWorkspace?.name ?? '-'}
+                  {currentWorkspace?.role && (
+                    <span className="text-muted-foreground"> · {currentWorkspace.role}</span>
+                  )}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -144,6 +155,8 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <CherrySettings />
 
         <CalendarIntegrationSettings />
 

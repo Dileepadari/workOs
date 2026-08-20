@@ -514,7 +514,7 @@ export default function CalendarPage() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <PageHeader title="Calendar" />
+      <PageHeader title="Calendar" subtitle={"Tasks, milestones, meetings and events, together."} />
       <input ref={fileInputRef} type="file" accept=".ics,.ical,.ifb,.icalendar" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImportICS(e.target.files[0]); e.target.value = ''; }} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -577,12 +577,12 @@ export default function CalendarPage() {
                   </span>
                   <div className="mt-1 space-y-0.5">
                     {dayEvents.slice(0, 3).map(e => (
-                      <button key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); }} className={`flex items-center gap-1 rounded px-1 py-0.5 text-[10px] sm:text-xs truncate w-full text-left hover:bg-muted/50 ${typeColor(e.type)}`}>
+                      <button key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); }} className={`flex items-center gap-1 rounded px-1 py-0.5 text-xs sm:text-xs truncate w-full text-left hover:bg-muted/50 ${typeColor(e.type)}`}>
                         {typeIcon(e.type)}
                         <span className="truncate">{e.title}</span>
                       </button>
                     ))}
-                    {dayEvents.length > 3 && <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</span>}
+                    {dayEvents.length > 3 && <span className="text-xs text-muted-foreground">+{dayEvents.length - 3} more</span>}
                   </div>
                 </div>
               );

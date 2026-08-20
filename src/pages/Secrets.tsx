@@ -225,8 +225,8 @@ export default function Secrets() {
   });
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
-      <PageHeader title="Secrets" />
+    <div className="animate-fade-in space-y-6">
+      <PageHeader title="Secrets" subtitle={`${items.length} encrypted ${items.length === 1 ? "entry" : "entries"}. Values are never shown until you ask.`} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
@@ -350,7 +350,7 @@ export default function Secrets() {
                       <p className="truncate text-sm font-semibold text-foreground" title={s.name}>{s.name}</p>
                       {s.username && <p className="truncate text-xs text-muted-foreground">{s.username}</p>}
                     </div>
-                    <Badge className={`shrink-0 text-[10px] ${secretCategoryColor(s.category)}`}>{secretCategoryLabel(s.category)}</Badge>
+                    <Badge className={`shrink-0 text-xs ${secretCategoryColor(s.category)}`}>{secretCategoryLabel(s.category)}</Badge>
                   </div>
 
                   <div className="flex items-start gap-1 rounded-md border border-border bg-muted/30 px-2 py-1.5">
@@ -381,12 +381,12 @@ export default function Secrets() {
 
                   {s.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {s.tags.map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
+                      {s.tags.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
                     </div>
                   )}
 
                   <div className="mt-auto flex items-center justify-between border-t border-border pt-2">
-                    <span className="text-[10px] text-muted-foreground">Updated {format(new Date(s.updated_at), 'MMM d, yyyy')}</span>
+                    <span className="text-xs text-muted-foreground">Updated {format(new Date(s.updated_at), 'MMM d, yyyy')}</span>
                     <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                       {s.url && (
                         <Button variant="ghost" size="icon" className="h-6 w-6" asChild>

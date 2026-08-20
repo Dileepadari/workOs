@@ -13,6 +13,7 @@ export default {
     },
     extend: {
       fontFamily: {
+        display: ["Fraunces", "Georgia", "serif"],
         sans: ["Inter", "system-ui", "sans-serif"],
       },
       colors: {
@@ -58,6 +59,12 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        // Book surfaces. Outside the palette system on purpose - see index.css.
+        paper: {
+          DEFAULT: "hsl(var(--paper))",
+          foreground: "hsl(var(--paper-foreground))",
+          edge: "hsl(var(--paper-edge))",
         },
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",

@@ -15,6 +15,10 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import bcrypt from "npm:bcryptjs@2";
+import {
+  handleCherryApply, handleCherryParse, handleCherryStatus, handleCherryTest, handleCherryUndo,
+  type CherryDeps,
+} from "./cherry/routes.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -84,9 +88,15 @@ const CONTENT_TABLES: Record<string, TableConfig> = {
   meetings: { projectScoped: true },
   events: { projectScoped: true },
   links: { projectScoped: false },
-  daily_log: { projectScoped: false, personalOnly: true },
   calendar_integrations: { projectScoped: false, personalOnly: true },
   synced_events: { projectScoped: false, personalOnly: true },
+  // The book. Each member's own pages - `personalOnly` keeps a workspace
+  // admin out of someone else's reflections, which is the whole reason the
+  // book is per-member rather than per-workspace.
+  day_pages: { projectScoped: false, personalOnly: true },
+  week_pages: { projectScoped: false, personalOnly: true },
+  // Focus blocks are personal too, and they are what day pages count.
+  focus_sessions: { projectScoped: false, personalOnly: true },
   // Shared workspace-wide, not per-user-private, for v1.
   saved_views: { projectScoped: false },
   // Has `uploaded_by`, not `created_by` - client passes it explicitly.
@@ -415,19 +425,52 @@ async function canAccessProject(
   return true; // viewer/commenter can read
 }
 
-async function handleData(req: Request, user: AuthedUser): Promise<Response> {
-  const body = await req.json().catch(() => ({}));
-  const { table, operation, workspace_id, payload, id, idColumn = "id", filters } = body;
+// One table operation, described as data rather than as an HTTP request.
+//
+// Split out from handleData so Cherry can run the same operations from
+// /cherry/apply without a second copy of the authorization rules. That
+// duplication is exactly the kind that rots: the copy keeps working while
+// quietly missing the guest project check somebody added to the original six
+// months later. There is one implementation, and both callers use it.
+export type DataOperation = "select" | "insert" | "update" | "upsert" | "delete";
+
+export interface DataOp {
+  table: string;
+  operation: DataOperation;
+  workspace_id: string;
+  payload?: unknown;
+  id?: string;
+  idColumn?: string;
+  filters?: Record<string, unknown>;
+}
+
+export interface DataResult {
+  data?: unknown;
+  error?: string;
+  status?: number;
+}
+
+type AuthorizedOp =
+  | { ok: true; role: string; config: TableConfig }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Everything that decides whether an operation is allowed: the table
+ * allowlist, workspace membership, the personal-table guard, and - for guests
+ * - which project the row belongs to.
+ */
+export async function authorizeDataOp(op: DataOp, user: AuthedUser): Promise<AuthorizedOp> {
+  const { table, operation, workspace_id, payload, id, idColumn = "id", filters } = op;
 
   const config = CONTENT_TABLES[table];
-  if (!config) return json({ error: "Table not allowed" }, 400);
-  if (!workspace_id) return json({ error: "Missing workspace_id" }, 400);
+  if (!config) return { ok: false, status: 400, error: "Table not allowed" };
+  if (!workspace_id) return { ok: false, status: 400, error: "Missing workspace_id" };
 
   const role = await getMembership(user.sub, workspace_id);
-  if (!role) return json({ error: "Not a member of this workspace" }, 403);
+  if (!role) return { ok: false, status: 403, error: "Not a member of this workspace" };
 
   if (config.personalOnly && role === "guest") {
-    return json({ error: "Guests cannot access this table" }, 403);
+    return { ok: false, status: 403, error: "Guests cannot access this table" };
   }
 
   // Resolve the project_id this operation touches, for guest scoping. For
@@ -437,10 +480,13 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
   // every project's rows looking for ones a guest happens to have access to.
   let projectId: string | null = null;
   if (config.projectScoped) {
+    const body = payload as Record<string, unknown> | undefined;
     if (config.selfIsProject) {
-      projectId = operation === "insert" ? null : (id ?? payload?.id ?? (filters?.id as string | undefined) ?? null);
+      projectId = operation === "insert"
+        ? null
+        : (id ?? (body?.id as string | undefined) ?? (filters?.id as string | undefined) ?? null);
     } else if (operation === "insert") {
-      projectId = payload?.project_id ?? null;
+      projectId = (body?.project_id as string | undefined) ?? null;
     } else if (id) {
       const { data: existingRow } = await dynamicTable(table).select("project_id").eq(idColumn, id).maybeSingle();
       projectId = existingRow?.project_id ?? null;
@@ -449,13 +495,44 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
     }
   }
 
-  const needWrite = operation !== "select";
   if (role === "guest") {
-    const allowed = config.selfIsProject
-      ? await canAccessProject(user.sub, workspace_id, projectId, role, needWrite)
-      : await canAccessProject(user.sub, workspace_id, projectId, role, needWrite);
-    if (!allowed) return json({ error: "Forbidden" }, 403);
+    const needWrite = operation !== "select";
+    const allowed = await canAccessProject(user.sub, workspace_id, projectId, role, needWrite);
+    if (!allowed) return { ok: false, status: 403, error: "Forbidden" };
   }
+
+  return { ok: true, role, config };
+}
+
+async function handleData(req: Request, user: AuthedUser): Promise<Response> {
+  const body = await req.json().catch(() => ({}));
+  const op: DataOp = { idColumn: "id", ...body };
+
+  const auth = await authorizeDataOp(op, user);
+  if (!auth.ok) return json({ error: auth.error }, auth.status);
+
+  const result = await executeDataOp(op, user, auth.config);
+  if (result.error) return json({ error: result.error }, result.status ?? 400);
+  return json(result.data === undefined ? { success: true } : { data: result.data });
+}
+
+/**
+ * Runs one already-authorized table operation.
+ *
+ * Callers must have run authorizeDataOp first - this function does no
+ * permission work of its own beyond the ownership filters that are part of
+ * writing correctly (workspace equality, and created_by on personal tables).
+ *
+ * `stamp` is the only place workspace_id and created_by are ever set. Cherry
+ * proposes payloads from a language model, so it matters that there is no
+ * second path where those could arrive from outside.
+ */
+export async function executeDataOp(
+  op: DataOp,
+  user: AuthedUser,
+  config: TableConfig,
+): Promise<DataResult> {
+  const { table, operation, workspace_id, payload, id, idColumn = "id", filters } = op;
 
   if (operation === "select") {
     let query = dynamicTable(table).select("*").eq("workspace_id", workspace_id);
@@ -464,8 +541,8 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
       for (const [key, value] of Object.entries(filters)) query = query.eq(key, value as string);
     }
     const { data, error } = await query.order(config.orderColumn ?? "created_at", { ascending: false });
-    if (error) return json({ error: error.message }, 400);
-    return json({ data });
+    if (error) return { error: error.message };
+    return { data };
   }
 
   // payload may be a single object or an array (bulk insert/upsert, e.g. ICS
@@ -476,24 +553,21 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
     ...(config.noCreatedBy ? {} : { created_by: user.sub }),
   });
 
-  if (operation === "insert") {
-    const rows = Array.isArray(payload) ? payload.map(stamp) : stamp(payload);
-    const query = dynamicTable(table).insert(rows).select();
+  if (operation === "insert" || operation === "upsert") {
+    const rows = Array.isArray(payload)
+      ? (payload as Record<string, unknown>[]).map(stamp)
+      : stamp(payload as Record<string, unknown>);
+    const base = dynamicTable(table);
+    const query = operation === "insert"
+      ? base.insert(rows).select()
+      : base.upsert(rows, { onConflict: idColumn }).select();
     const { data, error } = Array.isArray(payload) ? await query : await query.single();
-    if (error) return json({ error: error.message }, 400);
-    return json({ data });
-  }
-
-  if (operation === "upsert") {
-    const rows = Array.isArray(payload) ? payload.map(stamp) : stamp(payload);
-    const query = dynamicTable(table).upsert(rows, { onConflict: idColumn }).select();
-    const { data, error } = Array.isArray(payload) ? await query : await query.single();
-    if (error) return json({ error: error.message }, 400);
-    return json({ data });
+    if (error) return { error: error.message };
+    return { data };
   }
 
   if (operation === "update") {
-    if (!id) return json({ error: "Missing id" }, 400);
+    if (!id) return { error: "Missing id" };
 
     // Task (re)assignment notifies the new assignee - checked before the
     // write so we know whether assignee_id actually changed.
@@ -507,7 +581,7 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
     let query = dynamicTable(table).update(payload).eq(idColumn, id).eq("workspace_id", workspace_id);
     if (config.personalOnly) query = query.eq("created_by", user.sub);
     const { data, error } = await query.select().single();
-    if (error) return json({ error: error.message }, 400);
+    if (error) return { error: error.message };
 
     if (isReassignment && data.assignee_id && data.assignee_id !== priorAssigneeId && data.assignee_id !== user.sub) {
       await db.from("notifications").insert({
@@ -521,20 +595,31 @@ async function handleData(req: Request, user: AuthedUser): Promise<Response> {
       });
     }
 
-    return json({ data });
+    return { data };
   }
 
   if (operation === "delete") {
-    if (!id) return json({ error: "Missing id" }, 400);
+    if (!id) return { error: "Missing id" };
     let query = dynamicTable(table).delete().eq(idColumn, id).eq("workspace_id", workspace_id);
     if (config.personalOnly) query = query.eq("created_by", user.sub);
     const { error } = await query;
-    if (error) return json({ error: error.message }, 400);
-    return json({ success: true });
+    if (error) return { error: error.message };
+    return {};
   }
 
-  return json({ error: "Unknown operation" }, 400);
+  return { error: "Unknown operation", status: 400 };
 }
+
+// Everything Cherry needs from this module, handed over explicitly so the
+// import only goes one way and so it is obvious that she has no privileged
+// path of her own - she runs the same authorize/execute pair as /data.
+const cherryDeps: CherryDeps = {
+  db,
+  json,
+  userKeys: (userId) => userAiKeys(userId),
+  authorize: (op, user) => authorizeDataOp(op as DataOp, user),
+  execute: (op, user, config) => executeDataOp(op as DataOp, user, config as TableConfig),
+};
 
 // --- Comments, mentions, reactions, notifications, activity --------------
 //
@@ -801,6 +886,117 @@ async function decryptSecret(stored: string): Promise<string> {
     base64UrlDecode(encodedCiphertext),
   );
   return new TextDecoder().decode(plaintext);
+}
+
+
+// --- Personal preferences ------------------------------------------------
+//
+// Per user, not per workspace: who your assistant is, which theme you use and
+// which AI key you bring are yours, and should follow you to another browser
+// rather than living in one machine's localStorage.
+//
+// The two API keys are write-only over this API. They go in encrypted with the
+// same scheme as the secrets vault, and the only thing ever read back is
+// whether one is set plus its last four characters - enough for the UI to say
+// "your Gemini key ending 4f2a" without the browser ever holding the key.
+
+const PREF_COLUMNS = [
+  "theme", "font", "focus_minutes", "break_minutes", "focus_sound",
+  "notify_mentions", "notify_assignments", "onboarding_done",
+  "cherry_provider", "cherry_avatar", "cherry_voice",
+] as const;
+
+interface PrefRow { [k: string]: unknown }
+
+function publicPreferences(row: PrefRow | null) {
+  const base: Record<string, unknown> = {};
+  for (const c of PREF_COLUMNS) base[c] = row?.[c] ?? null;
+  return {
+    ...base,
+    // Never the keys themselves.
+    has_anthropic_key: Boolean(row?.anthropic_key_encrypted),
+    has_gemini_key: Boolean(row?.gemini_key_encrypted),
+    anthropic_key_hint: (row?.anthropic_key_hint as string) ?? null,
+    gemini_key_hint: (row?.gemini_key_hint as string) ?? null,
+  };
+}
+
+async function loadPreferences(userId: string): Promise<PrefRow | null> {
+  const { data } = await db.from("user_preferences").select("*").eq("user_id", userId).maybeSingle();
+  return data ?? null;
+}
+
+async function handleGetPreferences(user: AuthedUser): Promise<Response> {
+  let row = await loadPreferences(user.sub);
+  if (!row) {
+    // Created on first read rather than at signup, so existing accounts get
+    // one without a backfill migration.
+    const { data } = await db.from("user_preferences").insert({ user_id: user.sub }).select().single();
+    row = data ?? null;
+  }
+  return json({ preferences: publicPreferences(row) });
+}
+
+async function handleUpdatePreferences(req: Request, user: AuthedUser): Promise<Response> {
+  const body = await req.json().catch(() => ({}));
+  const patch: Record<string, unknown> = { user_id: user.sub, updated_at: new Date().toISOString() };
+
+  for (const c of PREF_COLUMNS) {
+    if (c in body) patch[c] = body[c];
+  }
+
+  // A key arrives as plaintext exactly once, on its way to being encrypted.
+  // An empty string means "clear it", which has to be distinguishable from
+  // "leave it alone" - hence the `in body` check rather than a truthiness one.
+  for (const [field, column] of [["anthropic_key", "anthropic"], ["gemini_key", "gemini"]] as const) {
+    if (!(field in body)) continue;
+    const value = String(body[field] ?? "").trim();
+    if (!value) {
+      patch[`${column}_key_encrypted`] = null;
+      patch[`${column}_key_hint`] = null;
+      continue;
+    }
+    if (!SECRETS_KEY) {
+      return json({ error: "Server is missing WORKOS_SECRETS_KEY, so keys cannot be stored safely." }, 500);
+    }
+    patch[`${column}_key_encrypted`] = await encryptSecret(value);
+    patch[`${column}_key_hint`] = value.slice(-4);
+  }
+
+  const { data, error } = await db
+    .from("user_preferences")
+    .upsert(patch, { onConflict: "user_id" })
+    .select()
+    .single();
+  if (error) return json({ error: error.message }, 400);
+  return json({ preferences: publicPreferences(data) });
+}
+
+/**
+ * The caller's own decrypted keys, for Cherry.
+ *
+ * Only ever called server-side, inside a request that already authenticated
+ * that user. A key that fails to decrypt is treated as absent rather than
+ * fatal - that means WORKOS_SECRETS_KEY was rotated, and the right behaviour
+ * is to fall back to the server's own key and let them re-enter theirs.
+ */
+export async function userAiKeys(userId: string): Promise<{ anthropic?: string; gemini?: string; provider?: string; avatar?: string }> {
+  const row = await loadPreferences(userId);
+  if (!row) return {};
+  const out: { anthropic?: string; gemini?: string; provider?: string; avatar?: string } = {
+    provider: (row.cherry_provider as string) ?? "auto",
+    avatar: (row.cherry_avatar as string) ?? "cherry",
+  };
+  for (const [key, column] of [["anthropic", "anthropic_key_encrypted"], ["gemini", "gemini_key_encrypted"]] as const) {
+    const stored = row[column] as string | null;
+    if (!stored) continue;
+    try {
+      out[key] = await decryptSecret(stored);
+    } catch {
+      // Rotated key: behave as though they had not set one.
+    }
+  }
+  return out;
 }
 
 /** Secrets are workspace-wide and sensitive - guests never get access. */
@@ -1098,6 +1294,15 @@ Deno.serve(async (req) => {
   if (req.method === "GET" && invitesMatch) return handleListInvites(invitesMatch[1], user);
 
   if (req.method === "POST" && path === "/data") return handleData(req, user);
+
+  if (req.method === "GET" && path === "/preferences") return handleGetPreferences(user);
+  if (req.method === "PATCH" && path === "/preferences") return handleUpdatePreferences(req, user);
+
+  if (req.method === "GET" && path === "/cherry/status") return handleCherryStatus(user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/test") return handleCherryTest(req, user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/parse") return handleCherryParse(req, user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/apply") return handleCherryApply(req, user, cherryDeps);
+  if (req.method === "POST" && path === "/cherry/undo") return handleCherryUndo(req, user, cherryDeps);
   if (req.method === "POST" && path === "/upload") return handleUpload(req);
   if (req.method === "GET" && path === "/file-text") return handleFileText(req);
   if (req.method === "DELETE" && path === "/file") return handleDeleteStoredFile(req);

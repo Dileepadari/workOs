@@ -22,12 +22,12 @@ describe('legacyTextToBlocks', () => {
 });
 
 describe('blocksToPlainText', () => {
-  it('joins the text of a flat document', () => {
+  it('separates blocks with newlines, so paragraphs do not run together', () => {
     const blocks = [
       { type: 'paragraph', content: [{ type: 'text', text: 'one' }] },
       { type: 'paragraph', content: [{ type: 'text', text: 'two' }] },
     ];
-    expect(blocksToPlainText(blocks)).toBe('one two');
+    expect(blocksToPlainText(blocks)).toBe('one\ntwo');
   });
 
   it('walks nested content and children, since lists and headings nest', () => {
@@ -36,7 +36,26 @@ describe('blocksToPlainText', () => {
       content: [{ type: 'text', text: 'parent' }],
       children: [{ type: 'bulletListItem', content: [{ type: 'text', text: 'child' }] }],
     }];
-    expect(blocksToPlainText(blocks)).toBe('parent child');
+    expect(blocksToPlainText(blocks)).toBe('parent\nchild');
+  });
+
+  it('keeps a code block on its own lines rather than flattening it', () => {
+    // Space-joining used to turn every pasted snippet into one unreadable
+    // strip, which made search hits land in the middle of nonsense and gave
+    // Cherry a mangled version of the note to read.
+    const blocks = [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Run this:' }] },
+      { type: 'codeBlock', content: [{ type: 'text', text: 'const a = 1;\nconst b = 2;' }] },
+    ];
+    expect(blocksToPlainText(blocks)).toBe('Run this:\nconst a = 1;\nconst b = 2;');
+  });
+
+  it('keeps inline runs within one block together without a break', () => {
+    const blocks = [{
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'bold' }, { type: 'text', text: ' and normal' }],
+    }];
+    expect(blocksToPlainText(blocks)).toBe('bold and normal');
   });
 
   it('returns an empty string for anything that is not a block array', () => {

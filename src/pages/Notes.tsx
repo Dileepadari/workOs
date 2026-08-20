@@ -94,11 +94,11 @@ export default function Notes() {
   };
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
-      <PageHeader title="Notes" />
+    <div className="animate-fade-in space-y-6">
+      <PageHeader title="Notes" subtitle={`${notes.length} ${notes.length === 1 ? "note" : "notes"}`} />
 
       <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</p>
+        <div />
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setEditing(null); setPendingContent(null); } }}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={openNewNote}><Plus className="mr-2 h-4 w-4" />New Note</Button>
@@ -178,7 +178,7 @@ export default function Notes() {
                     {n.content_text || n.content}
                   </button>
                 )}
-                <p className="text-[10px] text-muted-foreground">Updated {formatDistanceToNow(new Date(n.updated_at), { addSuffix: true })}</p>
+                <p className="text-xs text-muted-foreground">Updated {formatDistanceToNow(new Date(n.updated_at), { addSuffix: true })}</p>
               </CardContent>
             </Card>
           ))}

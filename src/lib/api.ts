@@ -6,6 +6,7 @@
 // multi-user workspaces.
 
 import { getToken, clearToken, decodeToken } from './authToken';
+import type { CherryApplyResult, CherryProposal, CherryTurn, CherryUndoToken } from './cherry';
 
 const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workos`;
 
@@ -439,4 +440,96 @@ export const attachments = {
       rows.map((row) => api.update('attachments', scope.workspaceId, row.id, { entity_id: toEntityId })),
     );
   },
+};
+
+// ------------------------------------------------------------------ Cherry --
+
+/**
+ * The assistant. `parse` proposes and never writes; `apply` writes only the
+ * actions whose ids are passed in, so there is no way to accidentally confirm
+ * everything. Answering a question re-posts to `parse` with the pending
+ * proposal and no message, which the server merges without calling a model.
+ */
+export const cherry = {
+  status: (): Promise<{ provider: string; model: string | null; reason: string }> =>
+    call('/cherry/status'),
+
+  test: (provider?: string): Promise<{ ok: boolean; provider: string; model?: string; error?: string }> =>
+    call('/cherry/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider }),
+    }),
+
+  parse: (input: {
+    workspace_id: string;
+    message?: string;
+    history?: CherryTurn[];
+    pending_proposal?: CherryProposal | null;
+    answers?: Record<string, unknown>;
+    resolutions?: Record<string, string>;
+    skips?: string[];
+    scope?: { project_id?: string | null };
+  }): Promise<{ proposal: CherryProposal; provider: string; degraded_from: string | null; provider_error: string | null }> =>
+    call('/cherry/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+
+  apply: (input: {
+    workspace_id: string;
+    proposal: CherryProposal;
+    confirmed_action_ids: string[];
+    typed_confirmations?: Record<string, string>;
+  }): Promise<CherryApplyResult> =>
+    call('/cherry/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }),
+
+  undo: (workspaceId: string, undo: CherryUndoToken): Promise<{ reverted: number; failed: string[] }> =>
+    call('/cherry/undo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_id: workspaceId, undo }),
+    }),
+};
+
+// ------------------------------------------------------------- preferences --
+
+export interface Preferences {
+  theme: string | null;
+  font: string | null;
+  focus_minutes: number | null;
+  break_minutes: number | null;
+  focus_sound: boolean | null;
+  notify_mentions: boolean | null;
+  notify_assignments: boolean | null;
+  onboarding_done: boolean | null;
+  cherry_provider: string | null;
+  cherry_avatar: string | null;
+  cherry_voice: boolean | null;
+  /** The keys themselves are never sent to the browser - only whether they
+   *  exist and their last four characters. */
+  has_anthropic_key: boolean;
+  has_gemini_key: boolean;
+  anthropic_key_hint: string | null;
+  gemini_key_hint: string | null;
+}
+
+/** Everything personal, stored per user rather than per browser. */
+export const preferences = {
+  get: (): Promise<{ preferences: Preferences }> => call('/preferences'),
+
+  /** Pass `anthropic_key`/`gemini_key` to set one, or an empty string to clear
+   *  it. They travel once, on the way to being encrypted at rest. */
+  update: (patch: Partial<Preferences> & { anthropic_key?: string; gemini_key?: string }):
+    Promise<{ preferences: Preferences }> =>
+    call('/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
 };

@@ -46,7 +46,11 @@ export function AppLayout() {
           </div>
           <span className="font-display text-sm font-semibold text-foreground">WorkOS</span>
         </div>
-        <div className="px-4 py-5 sm:px-6 sm:py-6">
+        {/* Cherry stands in the bottom-right corner and is fixed, so on a
+            narrow screen she sits on top of whatever is at the end of the
+            page. The extra bottom padding is her floor space: content can
+            always be scrolled clear of her instead of hiding under her. */}
+        <div className="px-4 py-5 pb-32 sm:px-6 sm:py-6 sm:pb-24">
           <Outlet />
         </div>
       </main>

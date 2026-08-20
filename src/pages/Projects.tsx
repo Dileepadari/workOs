@@ -137,7 +137,7 @@ export default function Projects() {
   });
 
   return (
-    <div className="animate-fade-in px-4 py-4 sm:px-6 sm:py-6 space-y-6">
+    <div className="animate-fade-in space-y-6">
       <PageHeader title="Projects" subtitle={`${projects.length} ${projects.length === 1 ? "project" : "projects"} in this workspace`} />
 
       <div className="flex justify-end">

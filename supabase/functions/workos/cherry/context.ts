@@ -59,6 +59,8 @@ export interface Digest {
   projects: { name: string; status: string; open: number; done: number }[];
   focusMinutesThisWeek: number;
   completedThisWeek: number;
+  completedToday: number;
+  focusMinutesToday: number;
 }
 
 const STOPWORDS = new Set([
@@ -94,9 +96,22 @@ export async function buildContext(
   workspaceId: string,
   message: string,
   scopeProjectId: string | null,
+  clientToday?: string,
 ): Promise<CherryContext> {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  /**
+   * The caller's calendar day, not the server's.
+   *
+   * The book already dates pages by local time - deliberately, because a UTC
+   * boundary splits an evening's work across two pages. Cherry was using UTC,
+   * so for anyone east of UTC her "today" and the book's "today" disagreed for
+   * part of every day: work logged at 00:10 in Delhi lands on the 21st in the
+   * book and the 20th for her. The client sends its own date; UTC is only the
+   * fallback for a caller that does not.
+   */
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(clientToday ?? "")
+    ? clientToday!
+    : now.toISOString().slice(0, 10);
   const weekday = now.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
 
   const byHandle = new Map<string, ContextRow>();
@@ -225,6 +240,12 @@ async function buildDigest(
   const completedThisWeek = tasks.filter(
     (t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) >= weekStart,
   ).length;
+  // "What did I get done today" is one of the first things anyone asks, and
+  // week-level counts cannot answer it - she was left inferring today's total
+  // from a weekly figure, which is guessing.
+  const completedToday = tasks.filter(
+    (t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) === today,
+  ).length;
 
   const { data: meetingRows } = await db
     .from("meetings")
@@ -270,6 +291,10 @@ async function buildDigest(
       .filter((f) => !f.was_break)
       .reduce((a, f) => a + (f.actual_minutes || 0), 0),
     completedThisWeek,
+    completedToday,
+    focusMinutesToday: ((focusRows ?? []) as { actual_minutes: number; was_break: boolean; started_at: string }[])
+      .filter((f) => !f.was_break && f.started_at.slice(0, 10) === today)
+      .reduce((a, f) => a + (f.actual_minutes || 0), 0),
   };
 }
 
@@ -301,7 +326,8 @@ export function renderContext(ctx: CherryContext): string {
     lines.push(`  by priority: ${Object.entries(d.byPriority).map(([k, v]) => `${v} ${k}`).join(", ")}`);
   }
   lines.push(`  ${d.overdueCount} overdue, ${d.unscheduled} with no due date`);
-  lines.push(`  ${d.completedThisWeek} closed this week, ${d.focusMinutesThisWeek} minutes of focus logged`);
+  lines.push(`  today: ${d.completedToday} closed, ${d.focusMinutesToday} minutes of focus`);
+  lines.push(`  this week: ${d.completedThisWeek} closed, ${d.focusMinutesThisWeek} minutes of focus`);
   // One list, soonest first, with anything already past marked as such.
   // Overdue and upcoming used to be printed as two separate blocks, and asking
   // "what is my next deadline" reliably got the first *future* item back while

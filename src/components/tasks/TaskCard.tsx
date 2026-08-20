@@ -2,8 +2,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, Edit2, Trash2, GripVertical } from 'lucide-react';
-import { format } from 'date-fns';
+import { AlertTriangle, Clock, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { format, isToday, isTomorrow } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { PRIORITY_COLORS } from '@/lib/taskMeta';
 import { memberLabel } from './AssigneePicker';
 import type { Task, ProjectLite, Member } from './types';
@@ -39,11 +40,27 @@ export function TaskCard({ task, project, assignee, selected, onToggleSelect, on
               {project.name}
             </Badge>
           )}
-          {task.due_date && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />{format(new Date(task.due_date), 'MMM d')}
-            </span>
-          )}
+          {task.due_date && (() => {
+            // A date on its own makes you do the arithmetic. Whether something
+            // is already late is the single most useful thing about it, so the
+            // row says so rather than leaving you to compare against today.
+            const due = new Date(`${task.due_date}T00:00:00`);
+            const settled = task.status === 'done' || task.status === 'dropped';
+            const overdue = !settled && due < new Date(new Date().toDateString());
+            const label = isToday(due) ? 'Today' : isTomorrow(due) ? 'Tomorrow' : format(due, 'MMM d');
+            return (
+              <span
+                className={cn(
+                  'flex items-center gap-1 text-xs',
+                  overdue ? 'font-medium text-destructive' : 'text-muted-foreground',
+                )}
+                title={overdue ? `Overdue - was due ${format(due, 'd MMM yyyy')}` : `Due ${format(due, 'd MMM yyyy')}`}
+              >
+                {overdue ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                {overdue ? `Overdue · ${label}` : label}
+              </span>
+            );
+          })()}
           {assignee && (
             <span className="ml-auto flex items-center gap-1" title={memberLabel(assignee)}>
               <Avatar className="h-4 w-4"><AvatarFallback className="text-xs">{memberLabel(assignee)[0]?.toUpperCase()}</AvatarFallback></Avatar>

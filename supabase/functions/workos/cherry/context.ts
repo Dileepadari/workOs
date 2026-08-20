@@ -302,13 +302,21 @@ export function renderContext(ctx: CherryContext): string {
   }
   lines.push(`  ${d.overdueCount} overdue, ${d.unscheduled} with no due date`);
   lines.push(`  ${d.completedThisWeek} closed this week, ${d.focusMinutesThisWeek} minutes of focus logged`);
-  if (d.overdue.length) {
-    lines.push("  Overdue:");
-    for (const t of d.overdue) lines.push(`    ${t.due}  ${t.title}${t.project ? ` (${t.project})` : ""}`);
-  }
-  if (d.upcoming.length) {
-    lines.push("  Next due:");
-    for (const t of d.upcoming) lines.push(`    ${t.due}  ${t.title}${t.project ? ` (${t.project})` : ""}`);
+  // One list, soonest first, with anything already past marked as such.
+  // Overdue and upcoming used to be printed as two separate blocks, and asking
+  // "what is my next deadline" reliably got the first *future* item back while
+  // something already late sat unmentioned above it. Chronological order is
+  // what anyone means by "next", and being late does not stop a deadline being
+  // the nearest one.
+  const deadlines = [
+    ...d.overdue.map((t) => ({ ...t, late: true })),
+    ...d.upcoming.map((t) => ({ ...t, late: false })),
+  ];
+  if (deadlines.length) {
+    lines.push("  Deadlines, soonest first:");
+    for (const t of deadlines) {
+      lines.push(`    ${t.due}  ${t.title}${t.project ? ` (${t.project})` : ""}${t.late ? "  [OVERDUE]" : ""}`);
+    }
   }
   if (d.meetings.length) {
     lines.push("  Upcoming meetings:");

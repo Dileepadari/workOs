@@ -241,6 +241,16 @@ export default function ProjectDetail() {
               <span>{pct}%</span>
             </div>
             <span className="flex items-center gap-1.5"><LinkIcon className="h-3 w-3" />{resources.length} {resources.length === 1 ? 'resource' : 'resources'}</span>
+            {/* Folded up from the old 2x2 stat grid below, which repeated the
+                task and resource counts already on this line and added a card
+                apiece to say it. Open milestones was the one number it
+                carried that this row did not. */}
+            {milestones.filter(m => !m.is_completed).length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Flag className="h-3 w-3" />
+                {milestones.filter(m => !m.is_completed).length} open {milestones.filter(m => !m.is_completed).length === 1 ? 'milestone' : 'milestones'}
+              </span>
+            )}
             {project.repo_url && (
               <a href={project.repo_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-primary">
                 <GitBranch className="h-3 w-3" />Repository <ExternalLink className="h-3 w-3" />
@@ -287,23 +297,6 @@ export default function ProjectDetail() {
 
             {/* Side column */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Completed', value: doneTasks, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
-                  { label: 'Remaining', value: totalTasks - doneTasks, icon: Circle, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                  { label: 'Milestones', value: milestones.filter(m => !m.is_completed).length, icon: Flag, color: 'text-accent', bg: 'bg-accent/10' },
-                  { label: 'Resources', value: resources.length, icon: LinkIcon, color: 'text-primary', bg: 'bg-primary/10' },
-                ].map(({ label, value, icon: Icon, color, bg }, index) => (
-                  <Card key={label} className="animate-scale-in overflow-hidden" style={{ animationDelay: `${index * 40}ms` }}>
-                    <CardContent className="flex flex-col items-center gap-2 p-3 sm:p-4 text-center">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bg}`}><Icon className={`h-4 w-4 ${color}`} /></div>
-                      <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{value}</p>
-                      <p className="text-xs sm:text-xs text-muted-foreground">{label}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
               {(milestones.find(m => !m.is_completed && new Date(m.date) >= new Date()) || nextMeeting) && (
                 <Card>
                   <CardContent className="space-y-3 p-4">

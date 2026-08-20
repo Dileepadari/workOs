@@ -199,10 +199,14 @@ export default function Dashboard() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
+        {/* Two of these used to be hardcoded Tailwind blues, which meant the
+            row mixed five unrelated hues and ignored whichever palette the
+            workspace had chosen. Everything here is a token now, so the tiles
+            stay one family in all ten palettes. */}
         {[
           { label: 'Projects', value: stats.projects, icon: FolderKanban, to: '/projects', color: 'text-primary', bg: 'bg-primary/10' },
-          { label: 'Open Tasks', value: activeTasks.length, icon: CheckSquare, to: '/tasks', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: 'Links', value: stats.links, icon: Link2, to: '/resources', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+          { label: 'Open Tasks', value: activeTasks.length, icon: CheckSquare, to: '/tasks', color: 'text-foreground', bg: 'bg-muted' },
+          { label: 'Links', value: stats.links, icon: Link2, to: '/resources', color: 'text-muted-foreground', bg: 'bg-muted' },
           { label: 'Notes', value: stats.notes, icon: FileText, to: '/notes', color: 'text-accent', bg: 'bg-accent/10' },
           { label: 'Events', value: upcomingEvents.length, icon: Calendar, to: '/calendar', color: 'text-success', bg: 'bg-success/10' },
         ].map(({ label, value, icon: Icon, to, color, bg }, index) => (

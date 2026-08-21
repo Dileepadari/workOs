@@ -53,25 +53,28 @@ export default function Book() {
 
   // Days and weeks interleaved: Mon-Sun, then that week's analysis, so turning
   // through the book passes the review at the point it was written.
+  /**
+   * Every page in date order, however they were written.
+   *
+   * Sorted rather than appended, because pages are generated in whatever order
+   * you happen to backfill them - writing yesterday's page after today's must
+   * still put it before today's. A week runs Monday to Sunday and its review
+   * is bound immediately after the Sunday that ends it, which the sort key
+   * expresses directly: a week page sorts to its own Sunday, one notch after
+   * the day page for that date. That also fixes week pages whose Sunday was
+   * never written - they used to fall off the end of the book instead of
+   * landing in the week they belong to.
+   */
   const leaves: BookLeaf[] = useMemo(() => {
-    const days: BookLeaf[] = [...dayPages]
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((d) => ({ kind: 'day' as const, ...d }));
-    const weeks = [...weekPages].sort((a, b) => a.week_start.localeCompare(b.week_start));
+    const sundayOf = (weekStart: string) => isoDate(addDays(parseISO(weekStart), 6));
 
-    const out: BookLeaf[] = [];
-    for (const d of days) {
-      out.push(d);
-      const wk = isoDate(weekStartOf(parseISO((d as DayPageRow & { kind: 'day' }).date)));
-      const isSunday = parseISO((d as DayPageRow & { kind: 'day' }).date).getDay() === 0;
-      const week = weeks.find((w) => w.week_start === wk);
-      if (isSunday && week) out.push({ kind: 'week', ...week });
-    }
-    // Any week page whose Sunday has no day page still belongs in the book.
-    for (const w of weeks) {
-      if (!out.some((l) => l.kind === 'week' && l.id === w.id)) out.push({ kind: 'week', ...w });
-    }
-    return out;
+    const entries: { key: string; rank: number; leaf: BookLeaf }[] = [
+      ...dayPages.map((d) => ({ key: d.date, rank: 0, leaf: { kind: 'day' as const, ...d } })),
+      ...weekPages.map((w) => ({ key: sundayOf(w.week_start), rank: 1, leaf: { kind: 'week' as const, ...w } })),
+    ];
+
+    entries.sort((a, b) => (a.key === b.key ? a.rank - b.rank : a.key.localeCompare(b.key)));
+    return entries.map((e) => e.leaf);
   }, [dayPages, weekPages]);
 
   const generate = async (target: Date, { force = false }: { force?: boolean } = {}) => {

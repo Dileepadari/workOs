@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertCircle, ArrowRight, CalendarRange, Lock, Quote, TrendingUp } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { DayPageRow, WeekPageRow } from '@/hooks/useWorkData';
@@ -49,9 +49,18 @@ export function BookPage({
   const still = reduceMotion || printMode || book;
 
   const isWeek = leaf.kind === 'week';
-  const dateLabel = isWeek
-    ? `Week of ${format(parseISO(leaf.week_start), 'd MMMM yyyy')}`
-    : format(parseISO(leaf.date), 'EEEE, d MMMM yyyy');
+  // A week is Monday to Sunday, so the page says both ends of it. "Week of
+  // 10 August" only names the start and leaves you working out where it
+  // stops - which matters most on the page that closes the week.
+  const dateLabel = (() => {
+    if (!isWeek) return format(parseISO(leaf.date), 'EEEE, d MMMM yyyy');
+    const start = parseISO(leaf.week_start);
+    const end = addDays(start, 6);
+    const sameMonth = start.getMonth() === end.getMonth();
+    return sameMonth
+      ? `${format(start, 'd')} - ${format(end, 'd MMMM yyyy')}`
+      : `${format(start, 'd MMM')} - ${format(end, 'd MMM yyyy')}`;
+  })();
 
   const metrics = Object.entries(leaf.metrics ?? {})
     .filter(([, v]) => v !== null && v !== undefined && v !== 0)
@@ -90,7 +99,7 @@ export function BookPage({
             <div className="flex items-center gap-1.5">
               {isWeek && (
                 <Badge variant="outline" className="gap-1 border-paper-edge text-[0.6rem] text-paper-foreground/60">
-                  <CalendarRange className="h-2.5 w-2.5" /> Week
+                  <CalendarRange className="h-2.5 w-2.5" /> Week in review
                 </Badge>
               )}
               {leaf.sealed_at && (

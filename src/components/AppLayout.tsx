@@ -50,7 +50,9 @@ export function AppLayout() {
             narrow screen she sits on top of whatever is at the end of the
             page. The extra bottom padding is her floor space: content can
             always be scrolled clear of her instead of hiding under her. */}
-        <div className="px-4 py-5 pb-32 sm:px-6 sm:py-6 sm:pb-24">
+        {/* Compact, centred content like the other apps, rather than stretching
+            edge to edge on a wide monitor. */}
+        <div className="mx-auto w-full max-w-[1200px] px-4 py-5 pb-32 sm:px-6 sm:py-6 sm:pb-24">
           <Outlet />
         </div>
       </main>

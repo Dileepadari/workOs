@@ -1,14 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { storageFileName, api, attachments, secrets } from '@/lib/api';
-import { setToken, getToken } from '@/lib/authToken';
 
-/** A token that decodes to { sub: 'user-1' } and is far from expiring. */
-function makeToken(sub = 'user-1'): string {
-  const payload = { sub, username: 'tester', iat: 0, exp: Math.floor(Date.now() / 1000) + 3600 };
-  const encode = (value: object) =>
-    btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `header.${encode(payload)}.signature`;
-}
+// api.ts reads its token and current user from the shared ecosystem session,
+// not localStorage - stub that in as an authenticated user for these tests.
+vi.mock('@/lib/session', () => ({
+  WORKOS_API_BASE: 'https://api.dileepadari.dev/apps/workos',
+  session: {
+    getAccessToken: async () => 'test-access-token',
+    getState: () => ({
+      status: 'authenticated',
+      user: { id: 'user-1', username: 'tester', email: 't@e.com', display_name: 'Tester', avatar_url: null, apps: { workos: 'member' } },
+    }),
+  },
+}));
+
+import { storageFileName, api, attachments, secrets } from '@/lib/api';
 
 /** Queues JSON responses in call order and records every request made. */
 function mockFetch(responses: Array<{ ok?: boolean; status?: number; body: unknown }>) {
@@ -29,7 +34,6 @@ function mockFetch(responses: Array<{ ok?: boolean; status?: number; body: unkno
 
 beforeEach(() => {
   localStorage.clear();
-  setToken(makeToken());
 });
 
 afterEach(() => {
@@ -81,10 +85,9 @@ describe('api.upload', () => {
     await expect(api.upload(new File(['x'], 'x.png'))).rejects.toThrow('Upload to storage failed');
   });
 
-  it('clears the stored token when the session has expired', async () => {
+  it('reports an expired session rather than a generic failure', async () => {
     mockFetch([{ ok: false, status: 401, body: {} }]);
     await expect(api.upload(new File(['x'], 'x.png'))).rejects.toThrow(/session has expired/i);
-    expect(getToken()).toBeNull();
   });
 });
 

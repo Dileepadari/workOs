@@ -12,6 +12,7 @@ export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +30,7 @@ export default function Auth() {
     setSubmitting(true);
 
     const { error } = isSignUp
-      ? await signUp(username, password, displayName || undefined)
+      ? await signUp(email, username, password, displayName || undefined)
       : await signIn(username, password);
 
     if (error) setError(error.message);
@@ -51,7 +52,7 @@ export default function Auth() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{isSignUp ? 'Username' : 'Username or email'}</Label>
               <Input
                 id="username"
                 type="text"
@@ -59,9 +60,23 @@ export default function Auth() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                placeholder="yourname"
+                placeholder={isSignUp ? 'yourname' : 'yourname or you@example.com'}
               />
             </div>
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                />
+              </div>
+            )}
             {isSignUp && (
               <div className="space-y-2">
                 <Label htmlFor="displayName">Display name (optional)</Label>

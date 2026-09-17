@@ -1,11 +1,11 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth as authApi } from '@/lib/api';
-import { getToken, setToken, clearToken, decodeToken } from '@/lib/authToken';
+import { session } from '@/lib/session';
+import type { SessionUser } from '@completeos/auth-client';
 
-// Custom username/password + JWT auth (see supabase/functions/workos) - no
-// Supabase Auth/GoTrue anywhere, since this app is headed for a self-hosted
-// Supabase instance with no Auth service. `email` stays optional on the user
-// object since not every account has one set.
+// WorkOS no longer keeps its own token: sign-in is the ecosystem's single
+// sign-on. The surface here is unchanged - useAuth() still gives the current
+// user and the sign in / up / out verbs - but it is backed by the shared
+// session, so arriving already signed in from another app lands here signed in.
 
 interface AuthUser {
   id: string;
@@ -16,46 +16,50 @@ interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (username: string, password: string, displayName?: string, email?: string) => Promise<{ error: Error | null }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    username: string,
+    password: string,
+    displayName?: string,
+  ) => Promise<{ error: Error | null }>;
   signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function toUser(u: SessionUser): AuthUser {
+  return { id: u.id, username: u.username, email: u.email };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      const payload = decodeToken(token);
-      if (payload) {
-        setUser({ id: payload.sub, username: payload.username });
-      } else {
-        clearToken();
-      }
-    }
-    setLoading(false);
+    session.init()
+      .then((s) => setUser(s.status === 'authenticated' ? toUser(s.user) : null))
+      .finally(() => setLoading(false));
+    return session.subscribe((s) => {
+      if (s.status === 'anonymous') setUser(null);
+      else if (s.status === 'authenticated') setUser(toUser(s.user));
+    });
   }, []);
 
-  const signIn = async (username: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
     try {
-      const { token, user: apiUser } = await authApi.login(username, password);
-      setToken(token);
-      setUser({ id: apiUser.id, username: apiUser.username });
+      const u = await session.login(identifier, password);
+      setUser(toUser(u));
       return { error: null };
     } catch (err) {
       return { error: err as Error };
     }
   };
 
-  const signUp = async (username: string, password: string, displayName?: string, email?: string) => {
+  const signUp = async (email: string, username: string, password: string, displayName?: string) => {
     try {
-      const { token, user: apiUser } = await authApi.signup(username, password, displayName, email);
-      setToken(token);
-      setUser({ id: apiUser.id, username: apiUser.username, email });
+      const u = await session.signup({ email, username, password, display_name: displayName });
+      setUser(toUser(u));
       return { error: null };
     } catch (err) {
       return { error: err as Error };
@@ -63,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = () => {
-    clearToken();
+    void session.logout();
     setUser(null);
   };
 

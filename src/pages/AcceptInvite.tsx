@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { invites } from '@/lib/api';
-import { setToken } from '@/lib/authToken';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import logoMark from '@/assets/logo-mark.png';
 
@@ -13,21 +10,20 @@ export default function AcceptInvite() {
   const { token } = useParams<{ token: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Accounts and sign-in belong to the ecosystem identity now, so an invite is
+  // accepted by an already signed-in person - it joins them to the workspace
+  // (and grants WorkOS access if they lacked it), rather than creating an
+  // account here.
+  const handleAccept = async () => {
     if (!token) return;
     setError('');
     setSubmitting(true);
     try {
-      const result = await invites.accept(token, user ? {} : { username, password, display_name: displayName || undefined });
-      if (result.token) setToken(result.token);
+      await invites.accept(token);
       setSuccess(true);
       setTimeout(() => navigate('/'), 1200);
     } catch (err) {
@@ -36,6 +32,8 @@ export default function AcceptInvite() {
       setSubmitting(false);
     }
   };
+
+  const returnTo = encodeURIComponent(`/invite/${token ?? ''}`);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 px-4">
@@ -48,35 +46,23 @@ export default function AcceptInvite() {
           <CardDescription>
             {user
               ? 'Accept this invite with your current account.'
-              : "You've been invited - create an account to join."}
+              : 'Sign in to your ecosystem account to accept this invite.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {success ? (
             <p className="text-sm text-center text-muted-foreground">You're in! Redirecting...</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!user && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoComplete="username" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="displayName">Display name (optional)</Label>
-                    <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-                  </div>
-                </>
-              )}
+          ) : user ? (
+            <div className="space-y-4">
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button className="w-full" onClick={handleAccept} disabled={submitting}>
                 {submitting ? 'Please wait...' : 'Accept invite'}
               </Button>
-            </form>
+            </div>
+          ) : (
+            <Button asChild className="w-full">
+              <Link to={`/auth?returnTo=${returnTo}`}>Sign in to continue</Link>
+            </Button>
           )}
         </CardContent>
       </Card>

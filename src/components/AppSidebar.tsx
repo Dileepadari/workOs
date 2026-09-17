@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { NotificationCenter } from './NotificationCenter';
+import { AppSwitcher } from '@completeos/ui';
+import { session } from '@/lib/session';
 import logoMark from '@/assets/logo-mark.png';
 
 const navGroups = [
@@ -162,6 +164,7 @@ export function AppSidebar({ onClose }: Props) {
       </nav>
 
       <div className="border-t border-sidebar-border px-3 py-3 space-y-2">
+        <AppSwitcher current="workos" hasApp={(app) => session.hasApp(app)} />
         <Button
           variant="ghost"
           size="sm"

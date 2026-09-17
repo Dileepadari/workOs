@@ -5,15 +5,18 @@
 // sibling `portfolio` project's src/lib/adminApi.ts, extended for
 // multi-user workspaces.
 
-import { getToken, clearToken, decodeToken } from './authToken';
+import { session, WORKOS_API_BASE } from './session';
 import type { CherryApplyResult, CherryProposal, CherryTurn, CherryUndoToken } from './cherry';
 
-const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workos`;
+const FUNCTIONS_BASE = WORKOS_API_BASE;
 
 async function call(path: string, init: RequestInit = {}) {
-  const token = getToken();
+  // The access token is the shared ecosystem session's, held in memory and
+  // refreshed there - never in this app's localStorage any more.
+  const token = await session.getAccessToken();
   const res = await fetch(`${FUNCTIONS_BASE}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       ...(init.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -21,7 +24,6 @@ async function call(path: string, init: RequestInit = {}) {
   });
 
   if (res.status === 401) {
-    clearToken();
     throw new Error('Your session has expired. Please log in again.');
   }
 
@@ -46,11 +48,11 @@ async function dataCall(
   return body.data;
 }
 
-/** Current user id from the stored JWT, for tables that want an explicit
+/** Current user id from the shared session, for tables that want an explicit
  *  actor column the /data gateway doesn't stamp (e.g. attachments.uploaded_by). */
 function currentUserId(): string | null {
-  const token = getToken();
-  return token ? (decodeToken(token)?.sub ?? null) : null;
+  const state = session.getState();
+  return state.status === 'authenticated' ? state.user.id : null;
 }
 
 /**
@@ -64,22 +66,6 @@ export function storageFileName(file: File, scope?: { workspaceId: string; entit
   const prefix = scope ? `${scope.workspaceId}-${scope.entityType}-${scope.entityId}-` : '';
   return `${prefix}${crypto.randomUUID()}-${safeOriginal}`;
 }
-
-export const auth = {
-  signup: (username: string, password: string, display_name?: string, email?: string) =>
-    call('/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, display_name, email }),
-    }),
-
-  login: (username: string, password: string) =>
-    call('/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    }),
-};
 
 export interface Workspace {
   id: string;
@@ -276,9 +262,10 @@ export const api = {
   upload: async (file: File, opts: { fileName?: string } = {}): Promise<string> => {
     const fileName = opts.fileName || storageFileName(file);
     const buffer = await file.arrayBuffer();
-    const token = getToken();
+    const token = await session.getAccessToken();
     const res = await fetch(`${FUNCTIONS_BASE}/upload`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'x-file-name': fileName,
@@ -289,7 +276,6 @@ export const api = {
     });
 
     if (res.status === 401) {
-      clearToken();
       throw new Error('Your session has expired. Please log in again.');
     }
 

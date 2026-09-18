@@ -2,31 +2,16 @@ import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { OnboardingWizard } from './OnboardingWizard';
-import { CherryPanel } from './cherry/CherryPanel';
-import { CherryLauncher } from './cherry/CherryLauncher';
 import { useCherryPrefs } from '@/hooks/useCherryPrefs';
+import { Assistant } from '@completeos/ui';
+import { session, GATEWAY_URL } from '@/lib/session';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoMark from '@/assets/logo-mark.png';
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [cherryOpen, setCherryOpen] = useState(false);
   const { avatar } = useCherryPrefs();
-
-  // Cmd/Ctrl+J opens Cherry. Cmd+K is already the search palette, and Cherry
-  // is the other thing you reach for without moving your hands.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
-        e.preventDefault();
-        setCherryOpen((v) => !v);
-      }
-      if (e.key === 'Escape') setCherryOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
 
   return (
     // Sidebar + content are capped and centred as one unit (like MoneyOS and
@@ -60,13 +45,16 @@ export function AppLayout() {
         </div>
       </main>
 
-      {/* Cherry stands in the corner rather than sitting in the menu: she is
-          a person you turn to, not a page you navigate to. Clicking her opens
-          the panel beside her. She also replaces the old quick-capture button
-          - task creation used to exist in four places at once, which was a
-          real part of why the app felt busy. */}
-      <CherryLauncher open={cherryOpen} onOpen={() => setCherryOpen(true)} avatar={avatar} />
-      <CherryPanel open={cherryOpen} onClose={() => setCherryOpen(false)} />
+      {/* The one shared ecosystem assistant - the same Cherry that runs in every
+          app. In WorkOS she asks which workspace before a change and then acts
+          through WorkOS's own path; she can also answer across your workspaces. */}
+      <Assistant
+        app="workos"
+        baseUrl={GATEWAY_URL}
+        getAccessToken={() => session.getAccessToken()}
+        enabled={session.hasApp('workos')}
+        avatar={avatar}
+      />
       <OnboardingWizard />
     </div>
   );

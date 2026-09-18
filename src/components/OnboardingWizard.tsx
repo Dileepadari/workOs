@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, workspaces as workspacesApi } from '@/lib/api';
+import { api, workspaces as workspacesApi, preferences as prefsApi } from '@/lib/api';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useTheme, hexToHSL } from '@/contexts/ThemeContext';
 import { ArrowRight, Check, Sparkles, FolderPlus, UserPlus } from 'lucide-react';
@@ -48,16 +48,26 @@ export function OnboardingWizard() {
     if (!currentWorkspace || checked) return;
     setChecked(true);
     if (isDismissed(currentWorkspace.id) || currentWorkspace.role !== 'owner') return;
-    api.select('projects', currentWorkspace.id).then((projects) => {
+    (async () => {
+      // Onboarding "done" is a per-person fact, so it lives in preferences on the
+      // server - not just localStorage, which reset the wizard on every new
+      // browser or cleared session. localStorage stays as a fast local guard.
+      try {
+        const { preferences } = await prefsApi.get();
+        if (preferences.onboarding_done) return;
+      } catch { /* if preferences can't be read, fall back to the projects heuristic */ }
+      const projects = await api.select('projects', currentWorkspace.id);
       if (projects.length === 0) {
         setWorkspaceName(currentWorkspace.name);
         setOpen(true);
       }
-    });
+    })();
   }, [currentWorkspace, checked]);
 
   const close = () => {
     if (currentWorkspace) markDismissed(currentWorkspace.id);
+    // Remember it server-side so it never reappears on another device or session.
+    prefsApi.update({ onboarding_done: true }).catch(() => {});
     setOpen(false);
   };
 

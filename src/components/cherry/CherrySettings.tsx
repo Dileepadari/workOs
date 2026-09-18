@@ -4,11 +4,6 @@ import { Switch } from '@/components/ui/switch';
 import { Sparkles } from 'lucide-react';
 import { CHARACTER_SVG, type Avatar } from './character';
 import { speechSupported, useCherryPrefs } from '@/hooks/useCherryPrefs';
-import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
-// Input removed: AI keys now live in the shared AiKeySettings panel.
-import { cherry as cherryApi } from '@/lib/api';
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AiKeySettings } from '@completeos/ui';
 import { session, GATEWAY_URL } from '@/lib/session';
@@ -22,20 +17,6 @@ const FIGURES: { id: Avatar; name: string }[] = [
 export function CherrySettings() {
   const { avatar, setAvatar, voiceEnabled, setVoiceEnabled } = useCherryPrefs();
   const canSpeak = speechSupported();
-  const [testing, setTesting] = useState(false);
-
-  const test = async () => {
-    setTesting(true);
-    try {
-      const res = await cherryApi.test();
-      if (res.ok) toast.success(`Cherry is on ${res.provider}${res.model ? ` (${res.model})` : ''}`);
-      else toast.error('That did not work', { description: res.error });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not reach the provider.');
-    } finally {
-      setTesting(false);
-    }
-  };
 
   return (
     <Card>
@@ -78,11 +59,8 @@ export function CherrySettings() {
         {/* One key for the whole ecosystem: the shared panel, writing to the
             identity store every app reads. A key set here also answers in
             MoneyOS, Portfolio and LifeOS. */}
-        <div className="space-y-3 border-t border-border pt-5">
+        <div className="border-t border-border pt-5">
           <AiKeySettings baseUrl={GATEWAY_URL} getAccessToken={() => session.getAccessToken()} />
-          <Button size="sm" variant="secondary" onClick={test} disabled={testing}>
-            {testing ? 'Checking...' : 'Test connection'}
-          </Button>
         </div>
 
         <div className="flex items-center justify-between border-t border-border pt-5">

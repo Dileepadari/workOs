@@ -29,7 +29,10 @@ export function AppLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    // Sidebar + content are capped and centred as one unit (like MoneyOS and
+    // LifeBook), so on a wide monitor the whole app sits in the middle instead
+    // of the sidebar hugging the far-left edge with the content adrift.
+    <div className="mx-auto flex h-screen max-w-[1500px] overflow-hidden">
       {sidebarOpen && (
         <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}

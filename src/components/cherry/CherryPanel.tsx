@@ -397,13 +397,24 @@ function CherryTurnCard({
 
   return (
     <div className="rounded-xl border border-border bg-background/60 p-3.5">
-      {p.understanding && (
-        <p className="text-sm leading-relaxed">
-          <span className="text-muted-foreground">I understood: </span>
-          {p.understanding}
-        </p>
+      {/* A question's answer is the point, so it leads in full-strength text.
+          For a change, the paraphrase leads ("I understood: …") and the reply is
+          a secondary note under it. */}
+      {p.intent_kind === 'question' || p.intent_kind === 'unclear' ? (
+        (p.reply || p.understanding) && (
+          <p className="text-sm leading-relaxed">{p.reply || p.understanding}</p>
+        )
+      ) : (
+        <>
+          {p.understanding && (
+            <p className="text-sm leading-relaxed">
+              <span className="text-muted-foreground">I understood: </span>
+              {p.understanding}
+            </p>
+          )}
+          {p.reply && <p className="mt-2 text-sm text-muted-foreground">{p.reply}</p>}
+        </>
       )}
-      {p.reply && <p className="mt-2 text-sm text-muted-foreground">{p.reply}</p>}
 
       {/* Degradation has to say what actually broke. Silently becoming a much
           simpler parser looks like Cherry got worse for no reason, and the

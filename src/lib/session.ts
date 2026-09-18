@@ -17,3 +17,5 @@ export const session = createSessionClient({ baseUrl: GATEWAY });
 
 /** Where every WorkOS API call is rooted, now that the app lives on the gateway. */
 export const WORKOS_API_BASE = `${GATEWAY}/apps/workos`;
+/** The gateway root, for cross-app endpoints like the shared AI-key store. */
+export const GATEWAY_URL = GATEWAY;

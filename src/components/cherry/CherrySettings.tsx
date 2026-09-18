@@ -3,13 +3,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Sparkles } from 'lucide-react';
 import { CHARACTER_SVG, type Avatar } from './character';
-import { speechSupported, useCherryPrefs, usePreferences, useUpdatePreferences } from '@/hooks/useCherryPrefs';
+import { speechSupported, useCherryPrefs } from '@/hooks/useCherryPrefs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/sonner';
+// Input removed: AI keys now live in the shared AiKeySettings panel.
 import { cherry as cherryApi } from '@/lib/api';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { AiKeySettings } from '@completeos/ui';
+import { session, GATEWAY_URL } from '@/lib/session';
 
 const FIGURES: { id: Avatar; name: string }[] = [
   { id: 'cherry', name: 'Cherry' },
@@ -19,18 +21,8 @@ const FIGURES: { id: Avatar; name: string }[] = [
 /** Who you talk to, and whether you can talk to them out loud. */
 export function CherrySettings() {
   const { avatar, setAvatar, voiceEnabled, setVoiceEnabled } = useCherryPrefs();
-  const { data: prefs } = usePreferences();
-  const update = useUpdatePreferences();
   const canSpeak = speechSupported();
-  const [anthropic, setAnthropic] = useState('');
-  const [gemini, setGemini] = useState('');
   const [testing, setTesting] = useState(false);
-
-  const saveKey = async (which: 'anthropic' | 'gemini', value: string) => {
-    await update.mutateAsync(which === 'anthropic' ? { anthropic_key: value } : { gemini_key: value });
-    if (which === 'anthropic') setAnthropic(''); else setGemini('');
-    toast.success(value ? 'Key saved and encrypted' : 'Key removed');
-  };
 
   const test = async () => {
     setTesting(true);
@@ -83,51 +75,11 @@ export function CherrySettings() {
           </div>
         </div>
 
-        {/* Keys are write-only: they go up once, get encrypted at rest, and
-            only ever come back as "set, ending 4f2a". */}
+        {/* One key for the whole ecosystem: the shared panel, writing to the
+            identity store every app reads. A key set here also answers in
+            MoneyOS, Portfolio and LifeOS. */}
         <div className="space-y-3 border-t border-border pt-5">
-          <div>
-            <Label>Your own AI keys</Label>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Stored encrypted against your account, never in this browser and never sent back to it.
-              Yours are used before the server's. Leave both empty and Cherry falls back to her
-              built-in parser, which still works.
-            </p>
-          </div>
-
-          {([
-            { id: 'anthropic', label: 'Anthropic', value: anthropic, set: setAnthropic, has: prefs?.has_anthropic_key, hint: prefs?.anthropic_key_hint, placeholder: 'sk-ant-...' },
-            { id: 'gemini', label: 'Gemini', value: gemini, set: setGemini, has: prefs?.has_gemini_key, hint: prefs?.gemini_key_hint, placeholder: 'AIza...' },
-          ] as const).map((k) => (
-            <div key={k.id} className="flex flex-wrap items-center gap-2">
-              <span className="w-20 text-sm">{k.label}</span>
-              <Input
-                type="password"
-                autoComplete="off"
-                className="h-8 max-w-xs flex-1 text-xs"
-                placeholder={k.has ? `Set, ending ${k.hint}` : k.placeholder}
-                value={k.value}
-                onChange={(e) => k.set(e.target.value)}
-              />
-              <Button
-                size="sm" variant="outline" className="h-8"
-                disabled={!k.value.trim() || update.isPending}
-                onClick={() => saveKey(k.id, k.value.trim())}
-              >
-                Save
-              </Button>
-              {k.has && (
-                <Button
-                  size="sm" variant="ghost" className="h-8"
-                  disabled={update.isPending}
-                  onClick={() => saveKey(k.id, '')}
-                >
-                  Remove
-                </Button>
-              )}
-            </div>
-          ))}
-
+          <AiKeySettings baseUrl={GATEWAY_URL} getAccessToken={() => session.getAccessToken()} />
           <Button size="sm" variant="secondary" onClick={test} disabled={testing}>
             {testing ? 'Checking...' : 'Test connection'}
           </Button>

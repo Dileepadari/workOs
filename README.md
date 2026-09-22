@@ -4,6 +4,12 @@ A team work manager - projects, tasks, notes, resources, secrets, calendar and a
 
 ---
 
+> **Where this builds.** This repository is a read-only mirror of `apps/workos` in the
+> [CompleteOS](https://github.com/Dileepadari/CompleteOS) monorepo, kept in sync as a git subtree. It has no workspace dependencies, but the monorepo is where it is developed and checked.
+> Clone the monorepo and run `npm ci` from its root, then work in `apps/workos`;
+> CI for this app runs there, not here.
+
+
 ## What you can do
 
 ### Dashboard
@@ -24,7 +30,7 @@ Create a project with a status (active / on hold / archived), type, tags, colour
 Browse projects as a grid or list, with search, status/type filters and sorting.
 
 ### Tasks
-List, board (drag and drop) and calendar views. Every task has a status (To Do / In Progress / Blocked / Done / Dropped), a priority (Low → Urgent), an optional due date and time, a project, an assignee, a rich description and file attachments.
+List, board (drag and drop) and calendar views. Every task has a status (To Do / In Progress / Blocked / Done / Dropped), a priority (Low > Urgent), an optional due date and time, a project, an assignee, a rich description and file attachments.
 
 Filter by status, priority, project or assignee; sort by due date, priority, newest or your own manual order; select several at once for bulk changes; and save any filter/sort combination as a named view you can jump back to.
 

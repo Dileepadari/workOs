@@ -1,8 +1,13 @@
 {
-  "//": "Tests live outside src/, so tsconfig.app.json (which only includes src) doesn't see them. `npm run typecheck` runs both projects so test code is type-checked too.",
+  "//": "Tests live outside src/, so tsconfig.app.json (which only includes src) doesn't see them. `npm run typecheck` runs both projects so test code is type-checked too. The jest-dom matchers are typed by tests/setup.ts importing '@testing-library/jest-dom/vitest', not by a 'types' entry, which augments jest rather than vitest.",
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
-    "types": ["vitest/globals", "@testing-library/jest-dom"]
+    "types": [
+      "vitest/globals"
+    ]
   },
-  "include": ["tests", "src"]
+  "include": [
+    "tests",
+    "src"
+  ]
 }

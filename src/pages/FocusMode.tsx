@@ -91,7 +91,11 @@ export default function FocusMode() {
   const [completeTaskConfirm, setCompleteTaskConfirm] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // `ReturnType<typeof setInterval>`, not `NodeJS.Timeout`: this is browser
+  // code, where setInterval returns a number. The Node type only resolved by
+  // accident of what @types/node leaked into scope, and stopped resolving on
+  // the Vite 7 upgrade.
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Request notification permission on mount
   useEffect(() => {

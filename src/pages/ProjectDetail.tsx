@@ -260,7 +260,7 @@ export default function ProjectDetail() {
               <span className="flex items-center gap-1.5">
                 <CalendarClock className="h-3 w-3" />
                 {format(new Date(project.start_date), 'MMM d')}
-                {project.target_end_date && ` – ${format(new Date(project.target_end_date), 'MMM d, yyyy')}`}
+                {project.target_end_date && ` - ${format(new Date(project.target_end_date), 'MMM d, yyyy')}`}
               </span>
             )}
           </div>

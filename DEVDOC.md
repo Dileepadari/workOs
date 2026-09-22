@@ -322,7 +322,7 @@ npx supabase functions deploy workos       # deploy the Edge Function
 
 ## Deployment
 
-- **Frontend**: static Vite build, deployed on Vercel. `vercel.json` has an SPA rewrite (`/:path* → /index.html`) since this is a client-routed app. Only `VITE_SUPABASE_URL` needs to be set in the Vercel project's environment variables.
+- **Frontend**: static Vite build, deployed on Vercel. `vercel.json` has an SPA rewrite (`/:path* > /index.html`) since this is a client-routed app. Only `VITE_SUPABASE_URL` needs to be set in the Vercel project's environment variables.
 - **Backend**: Supabase project (Postgres + the `workos` Edge Function). Migrations and function deploys are pushed via the Supabase CLI, not through Vercel.
 - **File storage**: an external Oracle VM running its own Caddy + upload service - not part of this repo's deploy pipeline; changes there happen over SSH.
 

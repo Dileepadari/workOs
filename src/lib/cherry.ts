@@ -102,7 +102,7 @@ export interface CherryAction {
   summary: string;
   fields: CherryFieldView[];
   /** Populated when an update would replace values that are already set, so
-   *  the user sees "before → after" rather than a bare "will set description". */
+   *  the user sees "before > after" rather than a bare "will set description". */
   overwrites?: { field: string; label: string; before: string; after: string }[];
   severity: CherrySeverity;
   destructive?: {

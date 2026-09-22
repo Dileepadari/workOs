@@ -384,8 +384,8 @@ export function CalendarIntegrationSettings() {
                 />
                 <p className="text-[11px] text-muted-foreground">
                   {newProvider === 'google'
-                    ? 'Find this in Google Calendar Settings → Calendar → Private Address (copy the .ics link)'
-                    : 'Find this in Outlook Calendar Settings → Sharing → Copy the iCal URL'}
+                    ? 'Find this in Google Calendar Settings > Calendar > Private Address (copy the .ics link)'
+                    : 'Find this in Outlook Calendar Settings > Sharing > Copy the iCal URL'}
                 </p>
               </div>
 

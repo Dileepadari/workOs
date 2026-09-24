@@ -19,6 +19,7 @@ import {
   handleCherryApply, handleCherryParse, handleCherryStatus, handleCherryTest, handleCherryUndo,
   type CherryDeps,
 } from "./cherry/routes.ts";
+import { canDeleteStoredFile } from "./file-access.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1216,7 +1217,20 @@ async function handleFileText(req: Request): Promise<Response> {
 // ORACLE_PUBLIC_BASE_URL, so it can't be pointed at anything else. The
 // filename is taken from the URL's last path segment and re-validated against
 // SAFE_FILENAME before being forwarded.
-async function handleDeleteStoredFile(req: Request): Promise<Response> {
+/**
+ * Deletes a stored blob from the shared storage box.
+ *
+ * Unlike /file-text, which only proxies a URL anyone could already fetch,
+ * this mints an `is_admin: true` token for that box. Authentication alone is
+ * therefore not enough: without the attachment lookup below, any signed-in
+ * user could delete any file belonging to any workspace, and the box is shared
+ * with the sibling portfolio and placements projects.
+ *
+ * The caller must be a member of a workspace that has an attachment row
+ * pointing at this exact URL. That is also what the only caller
+ * (attachments.remove in src/lib/api.ts) always has to hand.
+ */
+async function handleDeleteStoredFile(req: Request, user: AuthedUser): Promise<Response> {
   const target = new URL(req.url).searchParams.get("url");
   if (!target) return json({ error: "Missing url" }, 400);
 
@@ -1229,6 +1243,15 @@ async function handleDeleteStoredFile(req: Request): Promise<Response> {
   if (parsed.origin !== new URL(ORACLE_PUBLIC_BASE_URL).origin) {
     return json({ error: "Refusing to delete a URL outside the storage host" }, 403);
   }
+
+  const access = await canDeleteStoredFile(target, user.sub, {
+    attachmentWorkspaces: async (url) => {
+      const { data } = await db.from("attachments").select("workspace_id").eq("url", url);
+      return (data ?? []).map((r) => r.workspace_id);
+    },
+    isMember: async (userId, workspaceId) => (await getMembership(userId, workspaceId)) !== null,
+  });
+  if (!access.ok) return json({ error: access.error }, access.status);
 
   const fileName = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
   if (!fileName || !SAFE_FILENAME.test(fileName) || fileName.includes("..")) {
@@ -1305,7 +1328,7 @@ Deno.serve(async (req) => {
   if (req.method === "POST" && path === "/cherry/undo") return handleCherryUndo(req, user, cherryDeps);
   if (req.method === "POST" && path === "/upload") return handleUpload(req);
   if (req.method === "GET" && path === "/file-text") return handleFileText(req);
-  if (req.method === "DELETE" && path === "/file") return handleDeleteStoredFile(req);
+  if (req.method === "DELETE" && path === "/file") return handleDeleteStoredFile(req, user);
 
   if (req.method === "POST" && path === "/comments") return handleCreateComment(req, user);
   if (req.method === "GET" && path === "/comments") return handleListComments(req, user);

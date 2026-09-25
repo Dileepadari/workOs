@@ -18,7 +18,7 @@ import { Plus, List, LayoutGrid, Calendar as CalendarIcon, Bookmark, ChevronDown
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { TASK_STATUSES, TASK_PRIORITIES, TASK_STATUS_LABELS, sortTasks, type SortKey, type TaskStatus } from '@/lib/taskMeta';
+import { TASK_STATUSES, TASK_PRIORITIES, TASK_STATUS_LABELS, dueDay, sortTasks, type SortKey, type TaskStatus } from '@/lib/taskMeta';
 import { TaskFilterBar, DEFAULT_FILTERS, applyTaskFilters, type TaskFilters } from '@/components/tasks/TaskFilterBar';
 import { TaskListView } from '@/components/tasks/TaskListView';
 import { TaskBoardView } from '@/components/tasks/TaskBoardView';
@@ -118,7 +118,10 @@ export default function Tasks() {
     setPendingContent(null);
     setForm({
       title: task.title, status: task.status, priority: task.priority,
-      due_date: task.due_date ?? '', due_time: task.due_time ?? '', project_id: task.project_id ?? '', assignee_id: task.assignee_id ?? '',
+      // dueDay, not the raw value: <input type="date"> ignores a full
+      // timestamp, so opening a task for editing showed an empty due date and
+      // saving then cleared it.
+      due_date: dueDay(task.due_date) ?? '', due_time: task.due_time ?? '', project_id: task.project_id ?? '', assignee_id: task.assignee_id ?? '',
     });
     setDialogOpen(true);
   };

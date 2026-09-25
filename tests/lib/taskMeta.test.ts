@@ -1,9 +1,6 @@
 // Covers task status and priority ordering, labels and transitions.
 import { describe, it, expect } from 'vitest';
-import {
-  TASK_STATUSES, TASK_STATUS_LABELS, TASK_STATUS_COLORS,
-  TASK_PRIORITIES, PRIORITY_COLORS, getNextStatus, sortTasks, type TaskLike,
-} from '@/lib/taskMeta';
+import { TASK_STATUSES, TASK_STATUS_LABELS, TASK_STATUS_COLORS, TASK_PRIORITIES, PRIORITY_COLORS, getNextStatus, sortTasks, type TaskLike, dueDay, dueDateAtLocalMidnight } from '@/lib/taskMeta';
 
 const task = (over: Partial<TaskLike> = {}): TaskLike => ({
   status: 'todo',
@@ -71,5 +68,56 @@ describe('sortTasks', () => {
     const first = task({ sort_order: 1 });
     const unset = task();
     expect(sortTasks([third, first, unset], 'manual')).toEqual([unset, first, third]);
+  });
+});
+
+describe('dueDay', () => {
+  it('passes a bare date through', () => {
+    expect(dueDay('2026-10-03')).toBe('2026-10-03');
+  });
+
+  it('takes the day out of a full timestamp', () => {
+    // The column is declared DATE in the migrations, but the deployed database
+    // hands back a timestamp. Appending a time to the raw value built
+    // "2026-10-03T00:00:00.000ZT00:00:00", which is an invalid date - and
+    // format() throws on one, which unmounted the entire Tasks page.
+    expect(dueDay('2026-10-03T00:00:00.000Z')).toBe('2026-10-03');
+  });
+
+  it('returns null for nothing, and for something that is not a date', () => {
+    expect(dueDay(null)).toBeNull();
+    expect(dueDay(undefined)).toBeNull();
+    expect(dueDay('')).toBeNull();
+    expect(dueDay('tomorrow')).toBeNull();
+  });
+});
+
+describe('dueDateAtLocalMidnight', () => {
+  it('builds a valid date from a timestamp', () => {
+    const d = dueDateAtLocalMidnight('2026-10-03T00:00:00.000Z');
+    expect(d).not.toBeNull();
+    expect(Number.isNaN((d as Date).getTime())).toBe(false);
+  });
+
+  it('lands on local midnight of that day, not a UTC instant', () => {
+    // Parsing the timestamp directly would give a UTC instant that can fall on
+    // the previous calendar day west of Greenwich, so a task due the 3rd reads
+    // as due the 2nd.
+    const d = dueDateAtLocalMidnight('2026-10-03T00:00:00.000Z') as Date;
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(9);
+    expect(d.getDate()).toBe(3);
+    expect(d.getHours()).toBe(0);
+  });
+
+  it('agrees for both shapes of the same day', () => {
+    const a = dueDateAtLocalMidnight('2026-10-03') as Date;
+    const b = dueDateAtLocalMidnight('2026-10-03T00:00:00.000Z') as Date;
+    expect(a.getTime()).toBe(b.getTime());
+  });
+
+  it('returns null rather than an Invalid Date', () => {
+    expect(dueDateAtLocalMidnight(null)).toBeNull();
+    expect(dueDateAtLocalMidnight('not a date')).toBeNull();
   });
 });

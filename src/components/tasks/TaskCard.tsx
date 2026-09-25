@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { AlertTriangle, Clock, Edit2, Trash2, GripVertical } from 'lucide-react';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { PRIORITY_COLORS } from '@/lib/taskMeta';
+import { PRIORITY_COLORS, dueDateAtLocalMidnight } from '@/lib/taskMeta';
 import { memberLabel } from './AssigneePicker';
 import type { Task, ProjectLite, Member } from './types';
 
@@ -40,11 +40,15 @@ export function TaskCard({ task, project, assignee, selected, onToggleSelect, on
               {project.name}
             </Badge>
           )}
-          {task.due_date && (() => {
+          {dueDateAtLocalMidnight(task.due_date) && (() => {
             // A date on its own makes you do the arithmetic. Whether something
             // is already late is the single most useful thing about it, so the
             // row says so rather than leaving you to compare against today.
-            const due = new Date(`${task.due_date}T00:00:00`);
+            //
+            // dueDateAtLocalMidnight rather than appending to the raw value:
+            // the column hands back a full timestamp, and `${ts}T00:00:00` is
+            // an invalid date that makes format() throw and unmounts the page.
+            const due = dueDateAtLocalMidnight(task.due_date) as Date;
             const settled = task.status === 'done' || task.status === 'dropped';
             const overdue = !settled && due < new Date(new Date().toDateString());
             const label = isToday(due) ? 'Today' : isTomorrow(due) ? 'Tomorrow' : format(due, 'MMM d');

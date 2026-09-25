@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { dueDay } from '@/lib/taskMeta';
 
 export interface SyncedEvent {
   id?: string;
@@ -391,7 +392,11 @@ export async function syncCalendarEvents(
 
     // Add tasks signatures
     tasks?.forEach((t: any) => {
-      const taskDate = t.due_time ? new Date(`${t.due_date}T${t.due_time}`) : new Date(t.due_date);
+      // dueDay rather than the raw column: it hands back a full timestamp, so
+      // `${raw}T${time}` is an invalid date and every synced task silently
+      // became Invalid Date.
+      const day = dueDay(t.due_date);
+      const taskDate = day && t.due_time ? new Date(`${day}T${t.due_time}`) : new Date(t.due_date);
       existingSignatures.add(calculateEventSignature({
         title: t.title,
         startTime: taskDate,

@@ -56,6 +56,32 @@ export function getNextStatus(status: TaskStatus): TaskStatus | undefined {
   return NEXT_STATUS[status];
 }
 
+/**
+ * The calendar day of a due date, as `YYYY-MM-DD`, whatever shape it arrives in.
+ *
+ * `tasks.due_date` is declared `DATE` in the migrations but the deployed
+ * database hands back a full timestamp (`2026-10-03T00:00:00.000Z`). Code that
+ * appended a time to it built `...000ZT00:00:00`, which is an invalid date -
+ * and `format()` on an invalid date throws, which took the whole Tasks page
+ * down with it the moment any task had a due date.
+ *
+ * Returns the day part only, so callers can safely append a time and get local
+ * midnight rather than a UTC instant that can land on the previous day.
+ */
+export function dueDay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const day = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+}
+
+/** A Date at local midnight on the due day, or null if there is no usable date. */
+export function dueDateAtLocalMidnight(value: string | null | undefined): Date | null {
+  const day = dueDay(value);
+  if (!day) return null;
+  const d = new Date(`${day}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export interface TaskLike {
   status: TaskStatus;
   priority: TaskPriority;

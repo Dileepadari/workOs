@@ -158,10 +158,57 @@ Tailwind 3 to 4. The docs did not follow:
   number. Every issuance sets one, so reaching this needs the signing secret, at which point it
   is the least of the problems. Worth knowing if a second issuer is ever added.
 
-## Still open
+## The screenshots, and the bug they found
 
-**No screenshots.** The gallery is the one phase not done, and it is blocked on where to point
-the app rather than on effort. It needs a gateway with data, and there are only bad options
-without a decision: your Supabase stack already holds ports 54321-54327, `ops/db/migrate.sh`
-defaults to production, and pointing the app at the live gateway would put real work data in a
-public README. Put to you rather than guessed at.
+Captured against the live deployment, in a throwaway "Northwind Demo" workspace built through
+the app's own API, so nothing real is in the gallery. Emptied afterwards - 39 rows across nine
+tables, all of them mine.
+
+The harness is an iframe injected into the live page rather than a file served from a proxy.
+A proxy origin cannot carry the session: the access token lives in memory behind a refresh
+cookie, not in localStorage, so a seeded harness on `localhost:4100` would have captured the
+login screen on every route. Same-origin, the frame inherits both.
+
+**The Tasks page white-screened the moment any task had a due date.**
+
+```
+RangeError: Invalid time value
+    at Tasks-CajMOcEi.js
+```
+
+`due_date` is declared `DATE` in the migrations and the deployed database hands back a full
+timestamp. `TaskCard` did:
+
+```ts
+const due = new Date(`${task.due_date}T00:00:00`);
+```
+
+which built `2026-10-03T00:00:00.000ZT00:00:00`, an invalid date - and `format()` throws on
+one, which unmounts the whole page. Not a rendering glitch: a blank screen.
+
+Two quieter versions of the same assumption were next to it. Calendar sync built
+`` `${due_date}T${due_time}` `` and produced Invalid Date for every task with a time. And the
+edit form fed the raw timestamp to an `<input type="date">`, which ignores it - so opening a
+task showed an empty due date and saving cleared it.
+
+All three go through `dueDay()` now. It exists because the schema and the database disagree,
+and the client cannot fix that from here.
+
+**It had never been hit because the real workspace has no tasks at all.** Creating three
+projects and eleven tasks was what found it. That is the whole argument for Phase 7: the app
+had passed lint, typecheck, 84 tests and a production build with this in it.
+
+### Smaller things the live run turned up
+
+- **There is no way to delete a workspace.** No `DELETE /workspaces/:id` route exists, so the
+  emptied demo workspace shell is still there. You can create workspaces forever and never
+  remove one.
+- **The gateway collapses a constraint violation into `502 "The database refused that change."`**
+  Accurate and useless: `resources` and `meetings` both require `project_id`, and `meetings` has
+  no `duration_minutes`, but finding that out meant reading the migrations. The column name
+  would cost nothing to pass through.
+- **The floating assistant covers content on a phone.** Measured rather than eyeballed: a
+  `fixed bottom-3 right-4` button occupying x 278-374, y 700-832 in a 390px viewport - a quarter
+  of the width, sitting over the first project card. It comes from `@completeos/ui` and is
+  shared by all four apps, so it is not this pass's to change.
+- No horizontal page scroll at 390px: `scrollWidth` is exactly 390.

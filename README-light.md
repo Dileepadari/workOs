@@ -1,3 +1,5 @@
+<!-- Generated from README.md by scripts/build-light-readme.mjs. Do not edit by hand. -->
+
 <div align="center">
 
 <picture>
@@ -25,7 +27,7 @@
 
 **Live:** [workos.dileepadari.dev](https://workos.dileepadari.dev) &middot; **[Developer documentation](./DEVDOC.md)** &middot; [Screenshots](#screens)
 
-<p><b>Dark mode</b> &middot; <a href="./README-light.md">View this page in light mode</a></p>
+<p><b>Light mode</b> &middot; <a href="./README.md">View this page in dark mode</a></p>
 
 </div>
 
@@ -45,39 +47,39 @@
 <table>
 <tr>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/01-dashboard.png" alt="Dashboard" loading="lazy">
+<img src="./docs/screenshots/light/01-dashboard.png" alt="Dashboard" loading="lazy">
 <p align="center"><b>Dashboard</b><br><sub>The day at a glance, with what is overdue and what is blocked</sub></p>
 </td>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/02-projects.png" alt="Projects" loading="lazy">
+<img src="./docs/screenshots/light/02-projects.png" alt="Projects" loading="lazy">
 <p align="center"><b>Projects</b><br><sub>Status, type, tags and progress, searchable and sortable</sub></p>
 </td>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/03-tasks.png" alt="Tasks" loading="lazy">
+<img src="./docs/screenshots/light/03-tasks.png" alt="Tasks" loading="lazy">
 <p align="center"><b>Tasks</b><br><sub>List, board and calendar over one filtered set</sub></p>
 </td>
 </tr>
 <tr>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/04-calendar.png" alt="Calendar" loading="lazy">
+<img src="./docs/screenshots/light/04-calendar.png" alt="Calendar" loading="lazy">
 <p align="center"><b>Calendar</b><br><sub>Tasks, milestones, meetings and events together</sub></p>
 </td>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/05-book.png" alt="The book" loading="lazy">
+<img src="./docs/screenshots/light/05-book.png" alt="The book" loading="lazy">
 <p align="center"><b>The book</b><br><sub>One page a day, written from what you actually did</sub></p>
 </td>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/06-notes.png" alt="Notes" loading="lazy">
+<img src="./docs/screenshots/light/06-notes.png" alt="Notes" loading="lazy">
 <p align="center"><b>Notes</b><br><sub>Block-editor documents, on their own or on a project</sub></p>
 </td>
 </tr>
 <tr>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/07-project.png" alt="Project detail" loading="lazy">
+<img src="./docs/screenshots/light/07-project.png" alt="Project detail" loading="lazy">
 <p align="center"><b>Project detail</b><br><sub>Eight tabs, from milestones to who can see it</sub></p>
 </td>
 <td width="33%" valign="top">
-<img src="./docs/screenshots/dark/08-focus.png" alt="Focus mode" loading="lazy">
+<img src="./docs/screenshots/light/08-focus.png" alt="Focus mode" loading="lazy">
 <p align="center"><b>Focus mode</b><br><sub>Timed blocks that become the numbers in the book</sub></p>
 </td>
 <td width="33%" valign="top">

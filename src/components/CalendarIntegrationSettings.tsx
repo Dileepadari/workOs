@@ -1,3 +1,6 @@
+// Connect and manage external calendar feeds.
+//
+// @module components/CalendarIntegrationSettings
 import { useState, useEffect } from 'react';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

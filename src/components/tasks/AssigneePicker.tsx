@@ -1,3 +1,6 @@
+// Chooses who a task belongs to, from the workspace's members.
+//
+// @module components/tasks/AssigneePicker
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { Member } from './types';

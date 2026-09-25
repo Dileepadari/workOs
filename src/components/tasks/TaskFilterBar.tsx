@@ -1,3 +1,6 @@
+// The filter, sort and saved-view controls above the task list.
+//
+// @module components/tasks/TaskFilterBar
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';

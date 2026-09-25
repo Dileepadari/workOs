@@ -1,3 +1,11 @@
+// Which workspace the user is looking at, and the list they may choose from.
+//
+// Nearly every API call is scoped by workspace_id, so this is the single place
+// that id comes from. The choice is remembered in localStorage, and a
+// remembered id that is no longer in the user's list falls back to the first
+// one rather than leaving every request 403ing.
+//
+// @module contexts/WorkspaceContext
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { workspaces as workspacesApi, type Workspace } from '@/lib/api';
 import { useAuth } from './AuthContext';

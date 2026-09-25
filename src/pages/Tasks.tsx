@@ -1,3 +1,10 @@
+// The tasks screen: list, board and calendar over one filtered set.
+//
+// The three views share a single filtered, sorted array rather than each
+// querying for itself, so switching view cannot change which tasks you are
+// looking at - only how they are drawn.
+//
+// @module pages/Tasks
 import { useEffect, useMemo, useState } from 'react';
 import { api, workspaces as workspacesApi } from '@/lib/api';
 import { useWorkspace } from '@/contexts/WorkspaceContext';

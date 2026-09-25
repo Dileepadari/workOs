@@ -1,3 +1,4 @@
+// Covers task status and priority ordering, labels and transitions.
 import { describe, it, expect } from 'vitest';
 import {
   TASK_STATUSES, TASK_STATUS_LABELS, TASK_STATUS_COLORS,

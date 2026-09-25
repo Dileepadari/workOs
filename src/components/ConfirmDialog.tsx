@@ -1,3 +1,9 @@
+// A yes/no dialog for anything destructive.
+//
+// One component rather than an AlertDialog per call site, so every
+// irreversible action in the app asks in the same words and the same shape.
+//
+// @module components/ConfirmDialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface ConfirmDialogProps {

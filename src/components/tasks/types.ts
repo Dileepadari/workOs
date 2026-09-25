@@ -1,3 +1,10 @@
+// The row shapes the task views share.
+//
+// Kept beside the views rather than in lib/ because they are the shape this
+// screen renders, not the shape the API returns: the board, list and calendar
+// all read the same object, so widening it here widens all three at once.
+//
+// @module components/tasks/types
 import type { TaskStatus, TaskPriority } from '@/lib/taskMeta';
 
 export interface Task {

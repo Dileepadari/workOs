@@ -1,3 +1,10 @@
+// Sign in and sign up.
+//
+// This app issues its own JWTs against a users table rather than using
+// Supabase Auth, because it is headed for a self-hosted instance with no
+// GoTrue service. See the edge function's header for the whole scheme.
+//
+// @module pages/Auth
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';

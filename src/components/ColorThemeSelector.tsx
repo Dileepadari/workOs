@@ -1,3 +1,10 @@
+// Picks the accent palette, including a custom colour.
+//
+// The palettes are stored as hex because that is what a colour input gives
+// back, and converted to HSL on the way into the CSS variables, which is the
+// form the theme is written in.
+//
+// @module components/ColorThemeSelector
 import { useState } from 'react';
 import { useTheme, colorPalettes, hexToHSL, ColorPalette } from '@/contexts/ThemeContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

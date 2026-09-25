@@ -1,3 +1,15 @@
+// The bell: unread server notifications, plus reminders derived on the client.
+//
+// Two different things share one list. Server notifications are rows someone
+// else's action created (a mention, an assignment, a reply) and are marked
+// read. Reminders are computed here from what is already loaded - overdue
+// tasks, imminent meetings, milestones - and are only dismissed for the
+// session, because there is nothing to mark.
+//
+// Polled rather than subscribed: this auth model issues its own JWTs and has
+// no Supabase Realtime channel to listen on.
+//
+// @module components/NotificationCenter
 import { useEffect, useState } from 'react';
 import { api, notifications as notificationsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';

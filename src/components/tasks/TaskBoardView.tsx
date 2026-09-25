@@ -1,3 +1,10 @@
+// Tasks as columns by status, with drag and drop between them.
+//
+// A drop is a status change and nothing else: the card's position inside a
+// column is not persisted, because sort_order is the user's own manual order
+// and dropping into a column should not silently rewrite it.
+//
+// @module components/tasks/TaskBoardView
 import { DndContext, useDraggable, useDroppable, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';

@@ -1,3 +1,6 @@
+// The catch-all route.
+//
+// @module pages/NotFound
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 

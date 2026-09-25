@@ -1,3 +1,4 @@
+// Covers the secrets vault's client-side metadata and masking helpers.
 import { describe, it, expect } from 'vitest';
 import {
   SECRET_CATEGORIES, SECRET_CATEGORY_LABELS, SECRET_CATEGORY_COLORS,

@@ -1,3 +1,10 @@
+// What has happened lately, in a workspace or in one project.
+//
+// Reads the activity_log rows the edge function writes alongside the mutations
+// themselves, so the feed reflects what the server actually did rather than
+// what the client believes it asked for.
+//
+// @module components/ActivityFeed
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, UserPlus, History } from 'lucide-react';

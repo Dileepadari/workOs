@@ -1,3 +1,10 @@
+// The left rail: navigation, the workspace switcher, theme and sign-out.
+//
+// The workspace switcher lives here rather than in a settings page because
+// switching is how you change what every other screen is showing, so it has to
+// be reachable from all of them.
+//
+// @module components/AppSidebar
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, FolderKanban, CheckSquare, FileText, Link2, BookOpen, Settings, LogOut, Sun, Moon, Calendar, Crosshair, BarChart3, X, Users, ChevronsUpDown, Plus, Check, KeyRound } from 'lucide-react';

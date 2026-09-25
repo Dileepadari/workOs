@@ -1,3 +1,10 @@
+// Whether the quick-search dialog is open.
+//
+// A context rather than local state because the shortcut that opens it lives
+// at the router level and the dialog itself renders beside the routes, so
+// neither can hold the flag for the other.
+//
+// @module contexts/SearchContext
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 interface SearchContextType {

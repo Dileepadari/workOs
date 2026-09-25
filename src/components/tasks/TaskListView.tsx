@@ -1,3 +1,6 @@
+// Tasks as rows, grouped by status, with inline edit and status advance.
+//
+// @module components/tasks/TaskListView
 import { TASK_STATUSES, TASK_STATUS_LABELS } from '@/lib/taskMeta';
 import { TaskCard } from './TaskCard';
 import type { Task, ProjectLite, Member } from './types';

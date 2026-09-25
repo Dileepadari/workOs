@@ -1,3 +1,4 @@
+// Covers the file-type metadata: icon, label and grouping per extension.
 import { describe, it, expect } from 'vitest';
 import { fileKind, isImage, formatBytes, previewKind, languageLabel } from '@/lib/fileMeta';
 

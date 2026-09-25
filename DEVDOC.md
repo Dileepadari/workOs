@@ -401,3 +401,8 @@ The two AI keys are **write-only across the API**. They are encrypted with the s
 A user's own key is preferred over the server's `CHERRY_*` environment key - someone who supplied a key is paying for it.
 
 localStorage still holds the auth token, the current workspace id, and a **paint cache** of theme and font. The cache is read once on mount to avoid a flash of the wrong theme while the preferences request is in flight; it is never the source of truth, and the server's value overwrites it on hydration.
+
+---
+
+The decisions behind these, including the ones that turned out wrong, are in
+[not_for_you.md](./not_for_you.md).

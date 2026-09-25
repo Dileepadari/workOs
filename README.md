@@ -5,7 +5,10 @@ A team work manager - projects, tasks, notes, resources, secrets, calendar and a
 ---
 
 > **Where this builds.** This repository is a read-only mirror of `apps/workos` in the
-> [CompleteOS](https://github.com/Dileepadari/CompleteOS) monorepo, kept in sync as a git subtree. It has no workspace dependencies, but the monorepo is where it is developed and checked.
+> [CompleteOS](https://github.com/Dileepadari/CompleteOS) monorepo, kept in sync as a git subtree.
+>
+> **It does not build on its own.** The app imports `@completeos/auth-client` and
+> `@completeos/ui`, which are workspace packages: not published to npm, not vendored here.
 > Clone the monorepo and run `npm ci` from its root, then work in `apps/workos`;
 > CI for this app runs there, not here.
 

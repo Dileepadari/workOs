@@ -249,11 +249,16 @@ Lint runs with zero errors and is expected to stay that way. Two files (`src/int
 
 ### Frontend (Vite / Vercel)
 
-Only one is actually read by client code (`src/lib/api.ts`) - there is no Supabase JS client, so no anon/publishable key is needed on the frontend at all:
+Only one is actually read by client code (`src/lib/session.ts`) - there is no
+Supabase JS client, so no anon/publishable key is needed on the frontend at all:
 
 | Variable | Purpose |
 |---|---|
-| `VITE_SUPABASE_URL` | Base URL for the Edge Function (`{url}/functions/v1/workos`) |
+| `VITE_GATEWAY_URL` | Base URL of the ecosystem gateway. The app calls `{this}/apps/workos`. Defaults to `https://api.dileepadari.dev` when unset |
+
+The older `VITE_SUPABASE_URL` is gone: WorkOS moved off a directly-addressed
+Supabase project onto the shared gateway, and nothing in `src/` reads that
+name any more.
 
 ### Backend / local tooling only - never put these in Vercel
 
@@ -291,19 +296,39 @@ They live on Supabase's infrastructure and are read via `Deno.env.get()` inside 
 ## Local development
 
 ```sh
-npm install
-cp .env.example .env   # fill in VITE_SUPABASE_URL
-npm run dev            # http://localhost:8080
+npm ci                 # from the monorepo root, not from here
+cp apps/workos/.env.example apps/workos/.env   # fill in VITE_GATEWAY_URL
+npm run dev --workspace apps/workos            # http://localhost:8080
 ```
 
-`.npmrc` sets `legacy-peer-deps=true`: `@blocknote/shadcn` declares a peer on Tailwind v4 while this project is on v3 (the `src/components/ui` primitives and `tailwind.config.ts` are v3-shaped). It works fine at runtime; without the flag, `npm install` fails with `ERESOLVE`.
+`VITE_GATEWAY_URL` is the only variable the frontend reads. Sign-in, workspace
+data, secrets, files and the assistant all go to `{this}/apps/workos`;
+everything secret lives server-side in the gateway. The older
+`VITE_SUPABASE_URL` is gone - the app no longer talks to a Supabase project
+directly.
+
+`.npmrc` sets `legacy-peer-deps=true`: `react-day-picker` 8 peers `date-fns`
+`^2 || ^3` while the app is on `^4`. It works at runtime; without the flag
+`npm install` fails with `ERESOLVE`.
+
+**Tailwind is v4 and there is no `tailwind.config.ts`.** v4 is CSS-first: the
+theme lives in `src/index.css` behind `@import "tailwindcss"`, and PostCSS
+loads `@tailwindcss/postcss`. `components.json` carries an empty `config` for
+the same reason, so `npx shadcn add` does not go looking for a file that was
+deleted in the migration.
+
+**This app has no lockfile of its own.** The workspace root owns resolution,
+and `npm install` run inside `apps/workos` walks up and rewrites the root one
+anyway - so a child lockfile here cannot be maintained and only drifts. The one
+that used to be here had drifted as far as React 18 against React 19 source.
+`ops/check-app-lockfiles.mjs` guards that in CI.
 
 Useful scripts:
 
 ```sh
 npm run lint         # eslint - must stay at 0 errors
 npm run typecheck    # tsc over src/ and tests/
-npm run test         # vitest run
+npm run test         # vitest run, with the coverage floor
 npm run test:watch   # vitest, watching
 npm run build        # production build
 npm run create-user  # bootstrap the first account (env vars only - see the script header)
@@ -322,7 +347,7 @@ npx supabase functions deploy workos       # deploy the Edge Function
 
 ## Deployment
 
-- **Frontend**: static Vite build, deployed on Vercel. `vercel.json` has an SPA rewrite (`/:path* > /index.html`) since this is a client-routed app. Only `VITE_SUPABASE_URL` needs to be set in the Vercel project's environment variables.
+- **Frontend**: static Vite build, deployed on Vercel. `vercel.json` has an SPA rewrite (`/:path* > /index.html`) since this is a client-routed app. Only `VITE_GATEWAY_URL` needs to be set in the Vercel project's environment variables, and only to override the default.
 - **Backend**: Supabase project (Postgres + the `workos` Edge Function). Migrations and function deploys are pushed via the Supabase CLI, not through Vercel.
 - **File storage**: an external Oracle VM running its own Caddy + upload service - not part of this repo's deploy pipeline; changes there happen over SSH.
 

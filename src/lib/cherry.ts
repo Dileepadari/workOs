@@ -3,7 +3,9 @@
 // The canonical file is supabase/functions/workos/cherry/types.ts. The edge
 // function cannot import from src/ and Vite cannot import from a Deno
 // function directory, so this is a deliberate duplicate; tests/lib/cherry.test.ts
-// parses one shared fixture against both so they cannot drift silently.
+// compares the two declaration by declaration so they cannot drift silently.
+// That test is real as of 2026-09-30 - this comment described it for months
+// before anybody wrote it.
 //
 // Types and pure helpers only - every network call lives in src/lib/api.ts.
 //

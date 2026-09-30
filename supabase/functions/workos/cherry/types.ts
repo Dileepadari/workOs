@@ -2,7 +2,9 @@
 //
 // Mirrored in src/lib/cherry.ts. The edge function cannot import from src/ and
 // the frontend cannot import from here, so the two copies are kept honest by
-// tests/lib/cherry.test.ts, which parses one shared fixture against both.
+// tests/lib/cherry.test.ts, which compares them declaration by declaration.
+// That test is real as of 2026-09-30 - this comment described it for months
+// before anybody wrote it.
 //
 // The shape exists to make one interaction possible: Cherry says what she
 // understood, lists exactly what she would change, and asks for anything she

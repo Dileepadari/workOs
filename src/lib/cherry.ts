@@ -1,11 +1,12 @@
-// Cherry's wire contract, frontend copy.
+// Cherry's wire contract.
 //
-// The canonical file is supabase/functions/workos/cherry/types.ts. The edge
-// function cannot import from src/ and Vite cannot import from a Deno
-// function directory, so this is a deliberate duplicate; tests/lib/cherry.test.ts
-// compares the two declaration by declaration so they cannot drift silently.
-// That test is real as of 2026-09-30 - this comment described it for months
-// before anybody wrote it.
+// This was one of two copies: the other lived in the workos edge function,
+// which could not import from src/ while Vite could not import from a Deno
+// function directory. Both files claimed a test kept them in step and no such
+// test existed. The function was retired by the gateway and deleted on
+// 2026-09-30, so this is simply the contract now - one file, nothing to drift
+// against, which is a better answer than the test that was finally written to
+// guard the duplication.
 //
 // Types and pure helpers only - every network call lives in src/lib/api.ts.
 //

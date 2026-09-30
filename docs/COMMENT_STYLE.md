@@ -51,9 +51,9 @@ and one thing that is not obvious from reading it, then `@module <path>`.
 `src/components/ui/**` is vendored shadcn/ui and is left exactly as generated,
 headers included, so it can be regenerated without a merge.
 
-## The edge function
+## The API surface
 
-`supabase/functions/workos/index.ts` is the whole API surface **and the whole
+The gateway's `/apps/workos` routes are the whole API surface **and the whole
 authorization boundary**: every membership and role check happens there,
 against the service-role key, with RLS deny-all underneath as a second line
 rather than the first. A route that forgets a check is a cross-workspace leak,

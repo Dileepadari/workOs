@@ -23,14 +23,20 @@ Technical reference for the WorkOS codebase: architecture, auth model, data mode
 
 ## Tech stack
 
-React 18 + TypeScript + Vite, Tailwind CSS v3 + shadcn/ui, TanStack Query, BlockNote (rich text), dnd-kit (task board), recharts (charts), date-fns. The backend is Supabase Postgres reached through a single custom Deno Edge Function - no `@supabase/supabase-js` client and no Supabase Auth in the browser (see below for why).
+React 18 + TypeScript + Vite, Tailwind CSS v3 + shadcn/ui, TanStack Query, BlockNote (rich text), dnd-kit (task board), recharts (charts), date-fns. The backend is Supabase Postgres reached through the ecosystem gateway at `/apps/workos` - no `@supabase/supabase-js` client and no Supabase Auth in the browser (see below for why). It was a per-app Deno Edge Function until the gateway took the routes over.
 
 ## Architecture overview
 
+> **Updated 2026-09-30.** This section described a per-app Deno Edge Function
+> that the ecosystem gateway had already replaced, and whose source was deleted
+> on that date. The shape below is what runs now. Where the text still says
+> "Edge Function" about history or reasoning, that is deliberate; where it
+> described the live request path, it was wrong and is corrected.
+
 ```
 ┌─────────────────┐        HTTPS/JSON         ┌──────────────────────────┐
-│  React SPA      │ ───────────────────────▶  │  workos Edge Function    │
-│ (Vercel/static) │ ◀───────────────────────  │  (Supabase, Deno)        │
+│  React SPA      │ ───────────────────────▶  │  gateway /apps/workos    │
+│ (Vercel/static) │ ◀───────────────────────  │  (Deno, shared runtime)  │
 └─────────────────┘        Bearer JWT         └──────────┬───────────────┘
                                                              │ service-role key
                                                              ▼
@@ -39,11 +45,11 @@ React 18 + TypeScript + Vite, Tailwind CSS v3 + shadcn/ui, TanStack Query, Block
                                                   │  RLS: deny-all       │
                                                   └──────────────────────┘
 
-Uploads:  browser ──▶ workos Edge Function ──▶ supabase.dileepadari.dev (Oracle VM)
+Uploads:  browser ──▶ gateway /apps/workos ──▶ supabase.dileepadari.dev (Oracle VM)
 Reads:    browser ──▶ mystorage.dileepadari.dev (Caddy static files)
 ```
 
-The frontend **never talks to Postgres or Supabase Storage directly** - no `@supabase/supabase-js` client is used anywhere in `src/`. Every read/write goes through one Edge Function (`supabase/functions/workos/index.ts`) over plain `fetch`, using a self-issued JWT for auth. This was a deliberate choice (see next section) to make an eventual move to a self-hosted, Auth-less Supabase instance a non-event.
+The frontend **never talks to Postgres or Supabase Storage directly** - no `@supabase/supabase-js` client is used anywhere in `src/`. Every read/write goes through the gateway over plain `fetch`, at the base `src/lib/session.ts` builds as `${GATEWAY}/apps/workos`. This began as a per-app Edge Function, on the reasoning in the next section; the gateway inherited the pattern and the reasoning still holds.
 
 ## Auth model (no Supabase Auth)
 
@@ -52,16 +58,16 @@ This app intentionally does **not** use Supabase Auth (GoTrue). The plan is to e
 Instead:
 
 - **`public.users`** - a plain table (`id`, `username`, `password_hash` via bcrypt, `display_name`, `avatar_url`) that fully replaces `auth.users`. There is no `auth.*` schema dependency anywhere.
-- **Hand-rolled JWT** - HS256 sign/verify implemented from scratch with Web Crypto in the Edge Function (`signJwt` / `verifyJwt` / `base64Url*` in `supabase/functions/workos/index.ts`). Payload is `{ sub, username, iat, exp }`, 7-day TTL, secret in the `WORKOS_JWT_SECRET` Edge Function secret.
+- **Hand-rolled JWT** - HS256 sign/verify implemented from scratch with Web Crypto, originally in the per-app Edge Function and now in the gateway. Payload is `{ sub, username, iat, exp }`, 7-day TTL, secret in the `WORKOS_JWT_SECRET` secret.
 - **Client-side token storage** - `src/lib/authToken.ts` stores the JWT (localStorage) and decodes it for the current user id; `src/contexts/AuthContext.tsx` wraps sign-up/sign-in/sign-out around it.
-- **Authorization lives in application code, not RLS.** The Edge Function holds the `service_role` key and bypasses RLS entirely. Every request handler independently checks workspace/project membership (`workspace_members` / `project_members`) before touching content tables. RLS is still enabled on every table as defense-in-depth (deny-all for `anon`/`authenticated`), but it is **not** the enforcement mechanism - don't add features that assume RLS is doing authorization.
+- **Authorization lives in application code, not RLS.** The gateway holds the `service_role` key and bypasses RLS entirely. Every request handler independently checks workspace/project membership (`workspace_members` / `project_members`) before touching content tables. RLS is still enabled on every table as defense-in-depth (deny-all for `anon`/`authenticated`), but it is **not** the enforcement mechanism - don't add features that assume RLS is doing authorization.
 - **`config.toml`** sets `verify_jwt = false` on the `workos` function, because it verifies its own token, not one issued by Supabase.
 
-This mirrors the pattern used by the sibling `portfolio` project's `admin` Edge Function.
+This mirrors the pattern the sibling `portfolio` project used in its own `admin` Edge Function, which the gateway also replaced.
 
-## The `workos` Edge Function (API gateway)
+## The WorkOS API routes
 
-Single file: `supabase/functions/workos/index.ts`. Routes:
+Served by the ecosystem gateway at `/apps/workos`, in `services/gateway/`. The route table below is the contract the frontend calls; it began life as a single per-app Edge Function at `supabase/functions/workos/index.ts`, deleted on 2026-09-30 once the gateway owned every route in it. Routes:
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -241,7 +247,7 @@ Tests import through the `@/` alias, never relative paths into `src/`. `tsconfig
 `.github/workflows/ci.yml`, on push to `main` and every PR:
 
 - **frontend** - `npm ci`, then lint, typecheck (app + tests), test, and a production build. The build step catches what the typechecker doesn't: unresolvable imports and broken asset references.
-- **edge-function** - `deno check supabase/functions/workos/index.ts`. The function is Deno, excluded from `tsconfig` and ESLint, so without this job it would have no CI coverage at all. `supabase/functions/deno.json` exists so Deno resolves `npm:` specifiers from the registry instead of walking up to the frontend's `node_modules`.
+- **edge-function** - removed on 2026-09-30 with the function it checked. The routes moved to the gateway, which CI type-checks and tests under `services/gateway/`.
 
 Lint runs with zero errors and is expected to stay that way. Two files (`src/integrations/calendar/sync.ts`, `src/pages/CalendarPage.tsx`) have a scoped `no-explicit-any: warn` override - known, deliberately visible debt in the hand-rolled ICS parser. `any` remains an **error** everywhere else, so new code can't quietly add more.
 
@@ -382,7 +388,7 @@ Two corrections are baked in and should not be undone:
 
 ### Cherry
 
-`supabase/functions/workos/cherry/`. The rule everything hangs on: **the model never emits a row id.** It describes the row it means, and `resolve.ts` turns descriptions into ids deterministically. Context rows are sent under per-request handles (`p1`, `t7`) that are discarded with the request. That makes hallucinated ids structurally impossible and makes injected text inside a note inert, because the resolver only searches rows the *user's own message* gives grounds for.
+Cherry's server side lives in the gateway (`services/gateway/assistant/`); her wire contract is `src/lib/cherry.ts`, which was one of two copies until the edge function was deleted on 2026-09-30. The rule everything hangs on: **the model never emits a row id.** It describes the row it means, and `resolve.ts` turns descriptions into ids deterministically. Context rows are sent under per-request handles (`p1`, `t7`) that are discarded with the request. That makes hallucinated ids structurally impossible and makes injected text inside a note inert, because the resolver only searches rows the *user's own message* gives grounds for.
 
 Second rule: every extracted field carries a `quote`. A field whose quote is absent from the message, and whose `evidence` pattern in `schema.ts` does not fire, is dropped and re-asked rather than written. Models fill schemas; ask for a task with a priority and you get one whether or not urgency was expressed.
 

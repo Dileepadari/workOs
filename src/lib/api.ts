@@ -1,9 +1,10 @@
-// Single client for the `workos` Edge Function - every read/write in the
-// app goes through this instead of calling supabase.from(...) directly,
-// since there is no Supabase-issued session for Postgres RLS to key off of
-// (see supabase/functions/workos/index.ts for why). Mirrors the shape of the
-// sibling `portfolio` project's src/lib/adminApi.ts, extended for
-// multi-user workspaces.
+// Single client for the WorkOS data routes - every read/write in the app goes
+// through this instead of calling supabase.from(...) directly, because there
+// is no Supabase-issued session for Postgres RLS to key off of. The routes are
+// served by the ecosystem gateway at `${GATEWAY}/apps/workos`; they used to be
+// a per-app edge function, whose source was deleted on 2026-09-30 once nothing
+// called it. Mirrors the shape of the sibling `portfolio` project's
+// src/lib/adminApi.ts, extended for multi-user workspaces.
 
 import { session, WORKOS_API_BASE } from './session';
 import type { CherryApplyResult, CherryProposal, CherryTurn, CherryUndoToken } from './cherry';

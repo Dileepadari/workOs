@@ -59,11 +59,17 @@ export function getNextStatus(status: TaskStatus): TaskStatus | undefined {
 /**
  * The calendar day of a due date, as `YYYY-MM-DD`, whatever shape it arrives in.
  *
- * `tasks.due_date` is declared `DATE` in the migrations but the deployed
- * database hands back a full timestamp (`2026-10-03T00:00:00.000Z`). Code that
- * appended a time to it built `...000ZT00:00:00`, which is an invalid date -
- * and `format()` on an invalid date throws, which took the whole Tasks page
- * down with it the moment any task had a due date.
+ * This exists because the deployed database once handed back a full timestamp
+ * (`2026-10-03T00:00:00.000Z`) for a column the migrations declare `DATE`. Code
+ * that appended a time to it built `...000ZT00:00:00`, an invalid date, and
+ * `format()` on an invalid date throws - which took the whole Tasks page down
+ * the moment any task had a due date.
+ *
+ * The drift is gone: `ops/registry-check.sh` read the live schema on
+ * 2026-09-30 and `workos.tasks.due_date` is `date` there, matching the
+ * migration. This stays anyway. It costs one `slice` and it is the difference
+ * between a wrong-looking date and a blank page, which is not a trade worth
+ * winning back.
  *
  * Returns the day part only, so callers can safely append a time and get local
  * midnight rather than a UTC instant that can land on the previous day.
